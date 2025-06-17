@@ -1,0 +1,1246 @@
+---
+title: "GENERAL R HACKS by KK"
+author: "Katerina Krizova"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    number_sections: false
+    fig_caption: true
+  fontsize: 11pt
+  geometry: margin=1in
+--- 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, eval = F)
+```
+\newpage 
+
+# GENERAL KAT NOTES
+
+path_in = data
+path_out = results
+
+df = dataframe
+level = level of a factor
+
+read = simple table to read
+write = simple file to save
+f2s = file to save
+
+L___ = list of files
+
+floor = interval start
+ceiling = interval end
+number = operational number
+string = operational string
+
+# **INITIAL STEPS**
+
+## Packages
+
+```{r}
+install.packages("tidyverse") # install
+require(tidyverse) # "activate"
+```
+
+## Set paths
+
+```{r}
+path_in <- "D:/folder1/folder2/data/"
+path_out <- "D:/folder1/folder2/results/"
+```
+
+### absolute path
+
+```{r}
+df <- read.table("D:/folder1/folder2/data/read.csv", header = TRUE, sep = ";")
+df <- read.csv("D:/folder1/folder2/data/read.csv", header = TRUE, sep = ",")
+```
+
+### relative paths
+
+```{r}
+df <- read.table(paste0(path_in, "read.csv"), header = TRUE, sep = ";")
+df <- read.csv(paste0(path_in, "read.csv"), header = TRUE, sep = ",")
+```
+
+## Environment
+
+remove single file or list of files with specific name pattern
+
+```{r eval=F}
+rm(df) 
+rm(list=ls(pattern="df_"))
+```
+
+remove all dataframes that contains "muz_" in their name
+
+```{r}
+rm(list = ls()[grepl("muz_", ls())])
+```
+\newpage
+
+# **I M P O R T / E X P O R T**
+
+df = dataframe
+read = simple table to read
+write = simple file to save
+
+## TXT
+
+read.table = [function](https://www.rdocumentation.org/packages/utils/versions/3.6.2/topics/read.table)
+read.csv = [function](https://www.rdocumentation.org/packages/utils/versions/3.6.2/topics/read.table)
+read_csv = [function]()
+
+~ ENCODING ~
+fileEncoding="cp1250"
+encoding="utf-8"
+
+### read txt
+
+```{r}
+df <- read.table("D:/VURV/R_hacks/data/read.txt", header = TRUE, sep = ";")
+```
+
+### read csv
+
+read.csv : sep is always "," 
+
+```{r}
+df <- read.csv("D:/VURV/R_hacks/data/read.csv", header = TRUE, sep = ";")
+```
+
+### write to clipboard
+
+```{r}
+write.table(df, "clipboard", sep = "\t", row.names = FALSE)
+```
+
+
+### *memory issues*
+
+\#Error in .jcall(cell, "V", "setCellValue", value) :  java.lang.OutOfMemoryError: GC overhead limit exceeded
+
+```{r CHATGPT}
+
+# Determine the number of rows and split point
+total_rows <- nrow(APND_pk_rus)
+split_points <- c(round(total_rows / 3), 2 * round(total_rows / 3))
+
+# Split the dataframe into two parts
+part1 <- APND_pk_rus[1:split_points[1], ]
+part2 <- APND_pk_rus[(split_points[1] + 1):split_points[2], ]
+part3 <- APND_pk_rus[(split_points[2] + 1):total_rows, ]
+
+# Save each part to Excel files
+gc()
+write.xlsx(part1, file = paste0(path_ces, proj, "/", proj, "_PK_R_part1.xlsx"))
+gc()
+write.xlsx(part2, file = paste0(path_ces, proj, "/", proj, "_PK_R_part2.xlsx"))
+gc()
+write.xlsx(part3, file = paste0(path_ces, proj, "/", proj, "_PK_R_part3.xlsx"))
+
+```
+
+### conditional save
+
+- zabrani prepsani jiz existujicich souboru
+
+```{r}
+f2s <- paste0(path_kk, proj, "_allXLSX.csv")
+
+if(file.exists(f2s)){
+  print("You've been here before.")
+  rm(f2s)
+} else {
+  write.table(df, file = f2s, 
+            quote = T, row.names = F, 
+            sep = ";", dec = ",", 
+            na = "", fileEncoding="cp1250")
+  rm(f2s)
+  print("File saved!")
+  }
+```
+
+### factor save to multiple CSV
+
+```{r}
+
+df$level <- as.factor(df$level)
+
+Ldf <- split(df, df$level)
+
+for (i in seq_along(Ldf)) {
+  subset_df <- Ldf[[i]]
+  group_name <- unique(subset_df$level)
+  # write.csv(subset_df, paste0(path_kk, "import/", proj, "_import_", group_name, ".csv"), row.names = FALSE)
+  write.table(subset_df, file = "write.csv",
+            quote = T, row.names = F, 
+            sep = ";", dec = ",", 
+            na = "", fileEncoding="UTF-8")
+}
+```
+
+## EXCEL
+
+~ PACKAGES ~
+ 
+ readxl, xlsx, openxlsx
+ 
+~ FUNCTIONS ~
+ 
+ readxl::read_excel()
+ xlsx::read.xlsx()
+ xlsx::write.xlsx()
+
+### read excel
+
+```{r}
+df <- read_excel("D:/VURV/R_hacks/data/4read.xlsx" , sheet = 2, header = TRUE)
+```
+
+ISSUE: 'Warning: Expecting numeric in E1251 / R1251C5: got '41 (cm)'  
+SOLUTION: df <- read_excel(paste0(path_snd, "muzbe_rozmery_ptaci.xlsx"), sheet = 1, **col_types="text"**)
+
+### read multiple excel sheets
+
+potrebny balik "data.table"
+
+```{r}
+read_excel_allsheets <- function(filename, tibble = FALSE) {
+    # I prefer straight data.frames
+    # but if you like tidyverse tibbles (the default with read_excel)
+    # then just pass tibble = TRUE
+    sheets <- readxl::excel_sheets(filename)
+    x <- lapply(sheets, function(X) readxl::read_excel(filename, sheet = X, col_types = "text"))
+    if(!tibble) x <- lapply(x, as.data.frame)
+    names(x) <- sheets
+    x
+}
+
+mysheets <- read_excel_allsheets(paste0(path_proj, "20xx.xlsx")) # specifikuj excel file
+# list_data <- Map(as.data.frame, mysheets) # nesjpis neni nutny krok
+df <- rbindlist(mysheets) # pripadne list_data
+```
+
+### write excel
+
+package: xlsx
+
+```{r}
+write.xlsx(x = df,                       
+           file = "write.xlsx")
+```
+
+#### dataframes to sheets
+
+- k existujicimu pripoji pomoci **append=TRUE**
+- neprepisuje se. Pokud chci ulozit sheet, ktery uz v souboru je, hodi warning.
+
+```{r}
+a <- data.frame()
+b <- data.frame()
+
+write.xlsx(as.data.frame(a), file = "D:/folder1/folder2/write.xlsx", 
+           sheetName = "dataframe A", row.names=FALSE)
+write.xlsx(as.data.frame(b), file = "D:/folder1/folder2/write.xlsx",
+           sheetName = "dataframe B", append=TRUE, row.names=FALSE)
+```
+
+#### levels to sheets
+
+```{r}
+install.packages("writexl")
+library(writexl)
+
+empty_data <- data.frame()
+write_xlsx(empty_data, path = paste0(path_proj, "vystupy/", proj, "_PK_NV.xlsx")) 
+  
+for (i in Lzdroj) {
+  subset_df <- save %>% filter(REL_zdroj == i)
+  shtnam <- i
+  write.xlsx(as.data.frame(subset_df), file = paste0(path_proj, "vystupy/", proj, "_PK_NV.xlsx"), 
+             sheetName = i, row.names = FALSE, append = TRUE)
+}
+```
+
+### *memory issue*
+
+Error  
+pouzit funkci gc() = Grabage Collection -> vycisti pamet po ulozeni predchoziho listu  
+
+```{r}
+exi <- paste0(path_ces, proj, "/", proj, "_KAT_PVO.xlsx")
+
+if(file.exists(exi)){
+  print("File already exists !!!")
+} else {
+  f2s = exi
+  write.xlsx(as.data.frame(SAVE1), file= f2s, sheetName="sparovano", row.names=F, showNA = F)
+  gc()
+  write.xlsx(as.data.frame(SAVE2), file= f2s, sheetName="duplicity", append=T, row.names=F, showNA = F)
+  gc()
+  write.xlsx(as.data.frame(SAVE3), file= f2s, sheetName="nesparovanoMUS", append=T, row.names=F, showNA = F)
+  gc()
+  write.xlsx(as.data.frame(SAVE4), file= f2s, sheetName="nesparovanoCES", append=T, row.names=F, showNA = F)
+  gc()
+  write.xlsx(as.data.frame(SAVE0), file= f2s, sheetName="puv. vypis CES", append=T, row.names=F, showNA = F)
+  rm(exi)
+  rm(f2s)
+  }
+```
+
+## ACCESS
+
+### connect db and read table
+
+*.mdb = old MS ACCESS  
+*.accdb = new MS ACCESS 
+
+```{r}
+require(RODBC) # package 
+
+dbname <- paste0("---cesta+jmeno-databaze.accdb") 
+con <- RODBC::odbcConnectAccess2007(dbname)      
+RODBC::sqlTables(con)
+tab <- RODBC::sqlFetch(con, "---jmeno-tabulky---")
+```
+
+### save to accdb
+
+```{r}
+# install.packages("odbc")
+# install.packages("DBI")
+library(odbc)
+library(DBI)
+
+con <- dbConnect(odbc::odbc(),
+  .connection_string = paste0(
+    "Driver={Microsoft Access Driver (*.mdb, *.accdb)};",
+    "DBQ=", normalizePath("M:/03 klienti/narodni zemedelske muzeum - NZM/KK_workspace/test.accdb"), ";"))
+
+dbWriteTable(con, "MyTable", osfo, overwrite = TRUE)
+
+sapply(osfo, function(x) max(nchar(as.character(x)), na.rm = TRUE))
+
+```
+
+
+## SAMPLE
+
+### sample (random)
+
+```{r}
+sam <- sample_n(df, 10) # n=10
+```
+
+### samplet top X rows
+
+```{r}
+sam10 <- df %>% 
+  slice(1:10)
+```
+\newpage 
+
+# **FOLDERS, FILES, LISTS**
+
+## FOLDERS
+
+###  create folder in direcory
+
+```{r warning=F}
+dir.create ("D:/folder1/folder2/results/new_folder_abs") # absolute path
+dir.create (paste0(path_out, "new_folder_rel")) # relative path
+```
+
+### delete folder + content
+
+## FILES
+
+### load files from directory
+
+multiple files can be loaded from directory based on specific rule
+mostly file type or name of the file
+
+### read multiple and combine 
+
+```{r}
+Ldf <- list.files(path_in, pattern= "\\.csv$")  # Identify file names
+
+df_comb = data.frame() # empty dataframe to write files in
+
+for(i in Ldf) { 
+  a <- read.table(path_in, crop, i, header = FALSE, skip = 11) # skip = skip first 11 rows
+  a$source <- paste0(i) #  enter source file name into a new column named "source"
+  a$source <- str_sub(a$source,1,nchar(a$source)-4)
+  df <- data.frame(a) 
+  df_comb <- rbind(df_comb, df)
+}
+```
+
+### split df based on a factor level
+
+```{r eval=F}
+df_split <- split(df, df$level) # creates list
+
+lapply(names(df_split), function(df) write.csv(df_split[[df]], file=paste0(path_out, "new_folder_abs/", df, ".csv"), row.names = F)) 
+```
+
+## LISTS
+
+### create list of files
+
+```{r}
+# one
+Lvypis <- as.data.frame(list.files("D:/folder1/folder2/data/", full.names = T)) 
+
+# more
+Lvypis <- as.data.frame(list.files(c("D:/folder1/folder1/data/",
+                                    "D:/folder1/folder2/data/",
+                                    "D:/folder1/folder3/data/"),
+                                  pattern = "jpg$|JPG$", full.names = T)) 
+
+colnames(vypis)[1] <- "path"
+```
+
+### names of files without extension
+
+```{r}
+library(tools)
+file_path_sans_ext(list.files(pattern = "*.csv"))
+```
+\newpage
+
+# **DATA**
+
+## NUMERICS
+
+### round
+
+round(x, #) = zaokrouhleni na # pocet decimalnich cisel
+ceiling(x) = rounds values up to nearest integer
+floor(x) = rounds values down to nearest integer
+trunc(x) = truncates (cuts off) decimal places from values
+
+```{r}
+df_round <- df %>% 
+  mutate(across(where(is.numeric), ~ round(., digits = 1)))
+```
+
+### X digit numbers
+
+creates numbers with specified number of digits
+
+```{r}
+# df %>% 
+mutate(temp = sprintf("%04d", 1:1427))
+```
+
+### sequence in interval
+
+```{r}
+mutate(int = mapply(function(floor, ceiling) paste(seq(floor, ceiling, by = 1), collapse = ";"), floor, ceiling))
+```
+
+### ID and sequence along
+
+```{r PORADI}
+v <- c("raz", "dva", "tři", "čtyři", "pět") 
+v <- as.data.frame(v) %>% 
+  mutate(por = seq_along(v),
+         porplus = seq_along(v)+1)
+```
+
+### leading zeros -add
+
+```{r LEADING ZEROS}
+require(stringr) # package ::str_pad
+
+new_number = str_pad(number, 6, pad = "0"))
+```
+
+mutate = create a new column  
+new_number = name of a new column
+str_pad = [function] (https://www.rdocumentation.org/packages/stringr/versions/1.5.0/topics/str_pad)
+number = name of a source column (contains value '6' which we want add lead.zeros to)
+6 = we want a final value to have exactly 6 places  
+pad = "0" = empty places fill with "0"  
+
+### leading zeros -remove
+
+```{r}
+new_number = sub("^0+", "", number)
+```
+
+## DATE
+
+### date format
+
+[Date Formats in R](https://www.r-bloggers.com/2013/08/date-formats-in-r/)
+
+```{r}
+df$date <- toString(df$date) # convert date into date format
+df$date <- as.Date(df$date, "%Y%m%d") # convert date into date format
+
+# doesn't work so far
+# df$month <- format(df$sow_dat, "%m") # get months as numeric     
+# df$year <- format(df$sow_dat,format="%y") # get years
+```
+
+### convert integer to date
+
+```{r}
+hvd_scen$IPLD <- as.Date(as.character(hvd_scen$IPLD), format = "%Y%m%d")
+```
+
+### date format with pipes
+
+```{r}
+df %>% 
+mutate('11SPDatumZapisu' = format(as.Date(DatZap_S),"%d.%m.%Y")) 
+```
+
+### date conversion
+   
+28138 -> 13.01.1977
+pokud mame oba formaty, resime pomoci vnorenych ifelsu takto:
+
+```{r}
+df <- source %>% 
+  mutate(Mdat_ser = as.numeric(ifelse(str_detect(datumNabyti, "^.....$"), datumNabyti, NA)),
+         Mdat_trans = format(as.Date(Mdat_ser, origin = "1899-12-30"), "%d.%m.%Y"),
+         datnab22 = ifelse(str_detect(datumNabyti, "^.....$"), Mdat_trans, 
+                           ifelse(str_detect(datumNabyti, "\\."), sub("\\.$", "", datumNabyti), datumNabyti)))
+```
+
+Mdat_ser = seriove datum
+Mdat_trans = transformovane datum
+
+## STRINGS
+
+### length
+
+```{r STRING LENGTH}
+len = nchar(string)
+```
+
+### similarity
+
+install.packages("RecordLinkage")
+require("RecordLinkage")
+
+levenshteinSim = funkce
+column1, column2 = sloupce, ktere chci porovnat
+
+```{r STRING SIMILARITY}
+sim = levenshteinSim(column1, column2)
+```
+
+### detect case INsensitive
+
+```{r STRING CASE SENS}
+str_detect(column, regex("^FM\\s\\d+\\.jpg$", ignore_case = T))
+```
+
+### trim & lower case
+
+```{r}
+mutate(column2 = tolower(trimws(column1)))
+```
+
+### separate
+
+```{r SPLIT STRING}
+
+# # Split name column into firstname and last name
+# df[c('First Name', 'Last Name')] <- str_split_fixed(df$Name, ' ', 2)
+#  
+# # Rearrange columns and remove original name column
+# df <- df[c('First Name', 'Last Name', 'State')]
+
+separate(trida,into=c("trida_CZ", "trida_LAT") , sep=" ")
+separate(MDRUH, into=c("MROD", "rest") , sep=" ", extra = "merge") # at first whitespace
+separate(MDRUH, into=c("MROD", "rest") , sep=" ", extra = "merge", remove = F) # ponecha puvodni sloupec
+```
+
+### unite
+
+creates a string of multiple column values with NAs.
+
+```{r}
+unite(new_column, c("kmen", "trida", "rad", "celed", "rod", "druh_Nomen"),
+      sep = "/", na.rm = T, remove = FALSE) 
+```
+
+unite = [function](https://www.rdocumentation.org/packages/tidyr/versions/0.8.2/topics/unite)  
+new_column = name of a new column  
+c(***) = list of columns  
+sep = sign for separation  
+na.rm = skip columns containing NA  
+remove = keep or delete source columns  
+
+### remove last X characters
+
+str_sub(species,**1**,nchar(species)**-2**))
+1 -> new string strats with 1st character
+-2 -> cut last 2 characters
+
+```{r}
+sw_rem <- starwars %>% 
+  mutate(spec_short = str_sub(species,1,nchar(species)-2))
+```
+
+
+### seq_along with letters
+
+```{r}
+# lowercase
+new_colum = case_when(n()!=1 ~ letters[seq_along(number)], TRUE ~ NA)
+# uppercase
+new_colum = case_when(n()!=1 ~ LETTERS[seq_along(number)], TRUE ~ NA)
+```
+
+### detect/extract/remove
+
+functions:
+  str_detect(column, pattern) = looking for a specific pattern
+  str_extract(column, pattern) = extracts specific parts of a string
+  str_remove(column, pattern) = deletes specific parts of a string
+
+#### extract word
+
+```{r}
+mutate(boMROD = word(druh, 1)) # vezmi 1. slovo ze sloupce druh
+```
+
+\newpage
+
+# **DATAFRAMES**
+
+## EDA
+
+### any NA ?
+
+```{r}
+
+```
+
+### any \r or \n in text?
+
+```{r}
+any(grepl("[\r\n]", df))
+```
+
+### delete rows with NA values
+
+```{r eval=F}
+na.omit()
+```
+
+## General
+
+### replace "" with NA
+
+s pipe jsem zatim cestu nenasla
+
+```{r}
+taxon[taxon == ""] <- NA
+```
+
+### replace NA with ""
+
+```{r}
+ou <- taxon %>%
+  replace(is.na(.), "")
+
+ou <- taxon %>%
+  mutate_all(~ ifelse(is.na(.), "", .))
+```
+
+### str_trim pro cely df
+
+```{r}
+df %>% 
+  mutate(across(where(is.character), str_trim))
+```
+
+### mult column summary
+
+```{r}
+unique(df[,c('session','first','last')])
+
+plyr::count(SAVE3[,c('zmena','duvod')]) # i s poctem
+```
+
+### split df based on a factor level
+
+```{r eval=F}
+sw_split <- split(starwars, starwars$homeworld) # creates list
+
+lapply(names(sw_split), function(df) write.csv(sw_split[[df]], file=paste0(path_out, "new_folder_abs/", df, ".csv"), row.names = F)) 
+```
+
+
+### case_when
+
+creates a new column based on info from other columns
+```{r}
+sw_casewhen <- starwars %>% 
+  mutate(power = case_when(sex == "female" ~ "female power", 
+                           sex %in% c("male","none") ~ "too bad")) 
+```
+
+## Columns
+
+### remove columns acc to pattern
+
+```{r}
+bot <- bot %>% 
+  select(-contains("_sort"), -nvg_id)
+```
+
+### remove last n columns
+
+```{r}
+select(-mus_invc, -(last_col(offset = 34):last_col()))
+```
+
+### remove multiple colums
+
+typicky nazvy sloupcu z biolibu
+
+```{r}
+nam <- colnames(bl_sp)
+noquote(nam)
+nam2 <- paste0("-", nam)
+noquote(nam2)
+nam3 <- paste0(nam2, collapse = ",")
+nam3
+```
+
+### add prefix to column names
+
+```{r}
+colnames(kmen) <- paste0("kmen_", colnames(kmen))
+```
+
+### merge two columns with not complete information
+
+column 1 has some NAs  
+column 2 has also some NAs but in different rows than column 1
+TASK: create one column with merged info
+
+coalesce = [function](https://www.rdocumentation.org/packages/dplyr/versions/1.0.10/topics/coalesce)
+
+```{r}
+#package
+require(dplyr) # part of tidyverse
+
+# command
+mutate(kmen = coalesce(kmen_Nomen, trida_NadNomen))
+```
+
+### relocate columns
+
+```{r}
+relocate(MINVC, .before = JineC_S) 
+relocate(MINVCDO, .after = MINVC)
+
+# more than 1, in this order
+
+relocate(Mrada, Mcislo,  Mcislo0, Msub_a, .after = prirc) 
+```
+
+### shift columns 
+
+```{r}
+rows_to_change <- a$zmena == "N" # filter rows to be shifted
+a[rows_to_change,3:12] <- a[rows_to_change,2:12] # 3:12 nova lokace, 2:12 stara lokace
+a[rows_to_change,2] <- NA # puvodni lukaci (diru) nahradit NA
+```
+
+## Rows
+
+### DF top 10 rows
+
+```{r}
+mus_tab_cvic <- mus_tab %>% 
+  slice(1:10)
+```
+
+### sample of 10 random rows
+
+```{r}
+ch <- sample_n(df, 10) # n=10
+
+# random sample with selected columns
+sample_n(aa, 10) %>% select(rok, prirc, porc104, subc105, prirc4)
+```
+
+### drop NA rows in spec col
+
+```{r}
+sez_int <- sez %>% 
+  drop_na(MINVChorni)  
+```
+
+### filter with contains
+
+```{r}
+spo_ces <- ic %>% 
+  filter(grepl("Další|Jiná|Lapidárium|Etnografická", zdroj))
+```
+
+### copy rows / multiply
+
+1:nrow(df) = vsechny radky
+, 1), ]) = jednou (tzn. ve vysledku dostaneme kazdy radek dvakrat)
+
+```{r}
+df <- rbind(df, df[rep(1:nrow(df), 1), ])
+```
+
+### duplicates
+
+https://community.rstudio.com/t/filter-out-all-rows-with-duplicate-values/41043/4
+```{r}
+# Return names which have only a single row of data
+data %>% 
+  group_by(name) %>% 
+  filter(n()==1)
+
+# Return names which have more than one row of data
+data %>% 
+  group_by(name) %>% 
+  filter(n() != 1)
+
+# priznak
+data %>% 
+  group_by(name) %>% 
+  mutate(priznak = ifelse(n()!=1), 1, 0)
+```
+
+### distinct
+
+```{r}
+distinct() # napric sloupci
+
+distinct(sp_cislo, sp_id, .keep_all = TRUE) # vybrane sloupce, ponecha vse
+```
+
+### fill
+
+```{r}
+fill(Mrok, .direction = "down")
+```
+
+### drop row 
+
+```{r}
+df2 <- df1 %>% slice(-3) # based on row number
+df2 <- df1 %>% slice(-which(condition = "something")) # based on condition
+```
+
+## Salt & pepper
+
+```{r}
+summary(starwars$species[starwars$species == "Human"])
+summary(starwars$height[starwars$height > 100])
+summary(starwars$height) # to compare with selected part of the table
+```
+
+## Save file with date
+
+```{r}
+write.table(img, file = paste0(path_data, "KK_upravyDat_proMigraci/prirustky/", format(Sys.Date(), "%Y%m%d"), "_KK_pokus.csv"), 
+            quote = T, row.names = F, 
+            sep = ";", dec = ",", 
+            na = "", fileEncoding="cp1250")       
+```
+
+## Any \r or \n in text?
+
+```{r}
+any(grepl("[\r\n]", df))
+```
+\newpage
+
+# **JOINS**
+
+*inner_join* only keeps observations from x that have a matching key in y
+*left_join()* keeps all observations in x.
+*right_join()* keeps all observations in y.
+*full_join()* keeps all observations in x and y.
+
+[description and parameters](https://dplyr.tidyverse.org/reference/mutate-joins.html)
+
+### Join only selected columns
+
+```{r JOIN SEL COL}
+
+a <- left_join(biolib %>% dplyr::select('4nazevKategorie', '5nomen', '8nadrizenyTaxon'),
+            by = c("MNOMEN" = "5nomen"), keep = T)
+```
+\newpage
+
+# **LOOPS**
+
+## if, else if, else
+
+Slouží ke kontrole podmínky a provedení různých bloků kódu podle výsledku (TRUE/FALSE).
+```{r}
+x <- 5
+
+if (x > 0) {
+  print("x je kladné")
+} else if (x < 0) {
+  print("x je záporné")
+} else {
+  print("x je nula")
+}
+```
+
+## ifelse
+
+Funkce pro rychlé podmíněné přiřazení na vektorové úrovni. Velmi užitečná při práci s datovými rámci (data frames).
+```{r}
+x <- c(1, -2, 3)
+ifelse(x > 0, "kladné", "nekladné")
+```
+
+## for
+
+Slouží k opakování výpočtů pro každou hodnotu ve vektoru či seznamu.
+```{r}
+for (i in 1:5) {
+  print(paste("Hodnota i je", i))
+}
+
+```
+
+## while 
+
+Používá se, když předem nevíme, kolikrát se smyčka provede.
+```{r}
+i <- 1
+while (i <= 5) {
+  print(i)
+  i <- i + 1
+}
+```
+
+## repeat
+
+Hodí se pro situace, kdy opakujeme, dokud nenastane určitá událost.
+```{r}
+i <- 1
+repeat {
+  print(i)
+  i <- i + 1
+  if (i > 5) {
+    break
+  }
+}
+
+```
+
+## break, next
+
+break ukončí smyčku předčasně
+next přeskočí na další iteraci
+```{r}
+for (i in 1:5) {
+  if (i == 3) next
+  print(i)
+}
+```
+
+## funkcionální alternativy k cyklům
+
+Lepší (a často efektivnější) alternativy pro iteraci přes datové struktury v R:
+  apply, lapply, sapply, tapply, map (z purrr) 
+
+### apply()
+– pro matice a data frames
+```{r}
+m <- matrix(1:9, nrow = 3)
+apply(m, 1, sum)  # součet řádků
+```
+
+### lapply()
+– seznam, výstup je seznam
+```{r}
+l <- list(a = 1:3, b = 4:6)
+lapply(l, sum)
+```
+
+### sapply()
+– zjednodušený výstup (např. vektor)
+```{r}
+sapply(l, sum)
+```
+
+### tapply()
+– skupinove vypocty
+```{r}
+tapply(1:10, rep(c("A", "B"), each=5), mean)
+```
+
+### purrr::map()
+– moderní funkce z tidyverse
+```{r}
+library(purrr)
+map(l, sum)
+```
+
+## @@@ read all files from folder
+
+1) make a list of files
+```{r}
+Lxls <- list.files(path_data, pattern = "*.xlsx")  # *.txt *.jpg ...
+```
+
+2) create empty dataframe and specify col namens
+```{r}
+df_filled <- data.frame()
+# df_filled <- data.frame(matrix(ncol = 15, nrow = 0))
+
+colnam <- c("prirc","rok_prir","dat_nabyt")
+```
+ 
+3) read files and bind them 
+```{r}
+
+for(i in Lxls) {
+  a <- read_excel(paste0(path_data, i),
+                  col_types = "text",
+                  range = cell_cols("A:P"), na = " ") %>% # skip = 2 prepsano rangem
+    slice(-1)
+  names(a) <- colnam
+  a$zdroj <- paste(i) # add source txt file name
+  # print(count(a))
+  df_filled <- rbind(df_filled, a)
+  print(i)
+  # rm(a)
+}
+```
+
+\newpage
+
+# **REGEX**
+
+## Lookarounds
+
+FOO BAR
+
+**Positive Lookahead (?=pattern):**
+
+Matches a group after the main expression if the group is followed by another expression.
+Example: If you want to match "foo" only if it is followed by "bar", you can use the regex: foo(?=bar).
+
+**Negative Lookahead (?!pattern):**
+
+Matches a group after the main expression if the group is not followed by another expression.
+Example: If you want to match "foo" only if it is not followed by "bar", you can use the regex: foo(?!bar).
+
+**Positive Lookbehind (?<=pattern):**
+
+Matches a group before the main expression if the group is preceded by another expression.
+Example: If you want to match "foo" only if it is preceded by "bar", you can use the regex: (?<=bar)foo.
+
+**Negative Lookbehind (?<!pattern):**
+
+Matches a group before the main expression if the group is not preceded by another expression.
+Example: If you want to match "foo" only if it is not preceded by "bar", you can use the regex: (?<!bar)foo.
+
+## extract all numbers
+
+```{r}
+
+```
+
+## extract all (except) letters
+
+```{r}
+str_detect(invc, "[A-Za-z]")
+str_extract_all(invc, "[^a-zA-Z]")
+
+```
+
+## extract part ending with space or EOF
+
+(?:\\s|$): This part matches either a whitespace character (\\s) or the end of the string ($). The (?: ... ) is a non-capturing group, which allows us to group the alternatives without capturing them as a separate match.
+
+```{r}
+extracted <- str_extract(text, "c\\.j\\..*?(?:\\s|$)")
+```
+
+## extract everything following "/"
+
+```{r}
+str_extract(predmet_cislo, "(?<=/).*$")
+```
+
+## replace more than one pattern
+
+```{r}
+str_replace_all(prirc, c("\\d+" = "", "\\/" = ""))
+```
+
+# **GGPLOT**
+
+## variables
+
+## lab names
+
+## lab scales
+
+## legend name
+
+labs(fill = "legend name")
+
+## legend position
+
+theme_void(legend.position = c(0.7, 0.2),legend.direction = "horizontal"))
+
+## facet
+
+### facet_grid
+
+### facet_wrap
+
+## ggsave
+
+```{r eval=FALSE}
+ggsave("D:/VURV/R_hacks/results/plot.png", device = "png", width = 10, height = 6, dpi = 300)
+ggsave(paste0(path_out, "plot.png"), device = "png", width = 10, height = 6, dpi = 300)
+ggsave(paste0(path_out, "plot.png"), device = "png", width = 10, height = 6, dpi = 300) # add variable to the name
+```
+
+
+# **GIS**
+
+## links to explore
+
+http://oswaldosantos.github.io/ggsn/
+
+## the best spatial analysis R packages
+
+[source](https://towardsdatascience.com/the-best-spatial-analysis-packages-to-use-in-r-35855069f8b2)
+
+* [*maps*](https://cran.r-project.org/web/packages/maps/maps.pdf)
+    + basic package for producing simple maps very quickly and with little code
+* [*spatstat*](https://cran.r-project.org/web/packages/spatstat/spatstat.pdf)
+    + very good package to use on two dimensional spatial datasets
+    + complete spatial statistics package that can be used for point pattern analysis
+    + analyze spatial point pattern movement and distributions
+    + Spatstat also allows you to conduct kernel density estimates (KDE)
+* [*spdep*](https://cran.r-project.org/web/packages/spdep/spdep.pdf)
+    + Spdep allows you to build spatial weights for a dataset and conduct autocorrelation on your dataset as well
+* [*maptools*](https://cran.r-project.org/web/packages/maptools/maptools.pdf)
+    + allows you to read in and manipulate spatial data
+    + used for reading, writing, and exporting spatial data
+    + From KML, SHP, and ASCII, if your data have coordinates you can use maptools to explore the information in it
+* [*GISTools*](https://cran.r-project.org/web/packages/GISTools/GISTools.pdf)
+    + Probably one of the most versatile and necessary GIS packages in R for spatial data
+    + allows you to not only make maps but also to analyze data
+
+### st_ functions
+
+st_buffer(point, dist = 100)
+
+## spatial ggplot
+
+ggplot() +
+  geom_path(aes(long, lat, group=group), data=worldUk, color="black", fill=NA) +
+  coord_equal() +
+  ggsn::scalebar(worldUk, dist = 100, st.size=3, height=0.01, dd2km = TRUE, model = 'WGS84')
+
+
+# MARKDOWN
+
+## handy links
+
+* [Pimp my RMD](https://holtzy.github.io/Pimp-my-rmd/)
+
+## document header
+
+title: "Habits"
+author: John Doe
+date: March 22, 2005
+output:
+  pdf_document
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    fig_width: 7
+    fig_height: 6
+    fig_caption: true
+  fontsize: 11pt
+  geometry: margin=1in
+
+
+## r chunk options
+
+* \`\`\` \{r\} \`\`\`
+* r include = F : prevents from including the chunk in knitted file
+* r echo = F : code not in file, results yes
+* r eval = F : code is in the file, but the chunk does not run
+* r message = F : does not show the message (e.i. "shp uploaded")
+* r warning = F : does not show the warning (e.i. "folder already exists")
+
+## headers
+
+\# Title 1
+
+\#\# Title 2
+
+\#\#\# Title 3
+
+\*text\*  *italics*
+
+\*\*text\*\* **bold**
+
+\~\~text\~\~ ~~struckthrough~~
+
+## formatting
+
+\\newpage braks the page
+
+# r e a l   t a s k s
+
+## tvorba tabulky z vybraných sloupců
+
+Je treba mit vytvoreny list policek, ktere maji byt ve vyslednem csv. Priklad: pro PK 'Lpk' obsahuje 105 nazvu poli pro CSV se 105 sloupci.
+Zaroven je treba, aby se v pracovni tabulce nachazely prislusne sloupce se stejnym nazvem.
+Funkce potom vyzobe a posklada vysledne CSV.
+
+```{r}
+
+# list sloupcu pro nove CSV
+
+Lcol <- c("column1", "column2", "column3", "column4", "column5")
+
+# vytvorit prazdny dataframe pro zapis
+
+n <- 100 # pocet radku dle poctu zaznamu
+df <- data.frame(smazme = 1:n) # prazdny dataframe; "smazme" sloupe s ID, pote smazat
+
+# tvorba CSV
+
+for(i in Lcol){
+  if(i %in% colnames(source)){ # source = zdrojova tabulka
+    ano <- source %>% select(all_of(i))
+    df <- cbind(df, ano)
+    print("jo")
+  } else{
+    ne <- data.frame(rep(NA, n))
+    colnames(ne) <- i
+    df <- cbind(df, ne)
+    print("houby")}
+}
+
+df <- df %>% select(-smazme) 
+```

@@ -1,0 +1,32 @@
+---
+title: "kk"
+output: pdf_document
+date: "2025-06-09"
+---
+
+
+```{r}
+install.packages("tidyverse") # install
+require(tidyverse) # "activate"
+install.packages("pdftools") 
+require(pdftools) 
+install.packages("tabulizer")
+library(tabulizer)
+install.packages("stringr")
+library(stringr)
+
+path <- "C:/Users/krizova/Documents/reports/"
+```
+
+# read
+
+- requires Java
+- info here: https://stackoverflow.com/questions/44141160/recognize-pdf-table-using-r
+
+```{r}
+text <- pdf_text(paste0(path, "European Spot Gas Markets-27-May-2025.pdf")) # Read text from a PDF
+cat(text[1]) # View text from first page
+cat(text[4])
+
+```
+

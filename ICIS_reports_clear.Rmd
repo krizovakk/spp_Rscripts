@@ -1,0 +1,177 @@
+---
+title: "ICIS Heren reports - clear code"
+author: "Katerina Krizova"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    number_sections: false
+    fig_caption: true
+  fontsize: 11pt
+  geometry: margin=1in
+---
+
+```{r, echo=FALSE}
+require(tidyverse)
+require(openxlsx)
+
+Sys.setlocale("LC_TIME", "C")
+
+path_in <- "C:/Users/krizova/Documents/reports/csv_oper/"
+path_out <- "C:/Users/krizova/Documents/reports/"
+
+append_to_excel <- function(df, file_path, sheet = 1) {
+  library(openxlsx)
+  
+  if (file.exists(file_path)) {
+    # Load workbook and get next available row
+    wb <- loadWorkbook(file_path)
+    existing_data <- read.xlsx(file_path, sheet = sheet)
+    next_row <- nrow(existing_data) + 2  # +1 for header, +1 for next row
+  } else {
+    # Create new workbook and sheet
+    wb <- createWorkbook()
+    addWorksheet(wb, sheetName = ifelse(is.numeric(sheet), "Sheet1", sheet))
+    next_row <- 1
+  }
+
+  # Write data (only write header if first row)
+  writeData(wb, sheet = sheet, x = df, startRow = next_row,
+            colNames = (next_row == 1))
+  
+  # Save workbook
+  saveWorkbook(wb, file = file_path, overwrite = TRUE)
+}
+```
+
+```{r}
+Ltrh <- c("TTF", "THE", "VTP") 
+for (i in Ltrh) {
+  files <- list.files("X:/ICIS_Heren/", pattern = paste0(i, ".csv"), full.names = T) 
+  if (length(files) > 0) {
+    info <- file.info(files)
+    newest_file <- rownames(info)[which.max(info$mtime)]
+    file.copy(from = newest_file,
+          to = path_in)
+  }
+} 
+```
+
+```{r}
+Ltrh <- c("TTF", "THE", "VTP")
+for (i in Ltrh) {
+  files <- list.files(path_in, pattern = paste0(i, ".csv"), full.names = T) 
+  # df <- read.csv(paste0(path_in, file), header = TRUE, sep = ",") %>% 
+  if (length(files) > 0) {
+    info <- file.info(files)
+    newest_file <- rownames(info)[which.max(info$mtime)]
+    df <- read.csv(newest_file, header = TRUE, sep = ",") %>% 
+      filter(str_detect(Name, "^Natural Gas")) %>% 
+      mutate(publ = as.Date(Date, format = "%d %b %Y"),
+             weekday = weekdays(publ),
+             Den = case_when(weekday == "Monday" ~ "po",
+                             weekday == "Tuesday" ~ "ut",
+                             weekday == "Wednesday" ~ "st",
+                             weekday == "Thursday" ~ "ct",
+                             weekday == "Friday" ~ "pa",
+                             weekday == "Saturday" ~ "so",
+                             weekday == "Sunday" ~ "ne"),
+             Indicator = str_remove(Name, " TTF| THE| Czech Republic"),
+             deli = case_when(Den == "pa" & Indicator == "Natural Gas Day-ahead" ~ publ  + 3, 
+                              Den == "pa" & Indicator == "Natural Gas Weekend+0" ~ publ  + 1,
+                              TRUE ~ publ + 1),
+             deli_day = case_when(Den == "pa" & Indicator == "Natural Gas Day-ahead" ~ "po", 
+                                  Den == "po" & Indicator == "Natural Gas Day-ahead" ~ "ut",
+                                  Den == "ut" & Indicator == "Natural Gas Day-ahead" ~ "st",
+                                  Den == "st" & Indicator == "Natural Gas Day-ahead" ~ "ct",
+                                  Den == "ct" & Indicator == "Natural Gas Day-ahead" ~ "pa",
+                                  Den == "pa" & Indicator == "Natural Gas Weekend+0" ~ "so+ne",
+                                  TRUE ~ NA),
+             empty_col = "")
+    print(newest_file)
+    rm(info)
+    rm(newest_file)
+  } else {
+    warning("Not the robots you're looking for.")
+  }
+  if (i == "TTF"){
+    df <- df %>% select("Day" = Den, publ, deli, "Delivery day" = deli_day, Indicator, Period, "TTF Bid" = Bid, "TTF Offer" = Offer, "TTF Mid" = Mid.Price, "_" = empty_col) 
+    assign("ttf", df)
+  } else if (i == "THE"){
+    df <- df %>% select(Indicator, "THE Bid" = Bid, "THR Offer" = Offer, "THE Mid" = Mid.Price, "-" = empty_col) 
+    assign("the", df)
+  } else if (i == "VTP"){
+    df <- df %>% select(Indicator, "CZ-VTP Bid" = Bid, "CZ-VTP Offer" = Offer, "CZ-VTP Mid" = Mid.Price) 
+    assign("vtp", df)
+    
+  } else {
+    warning("I have a bad feeling about this.")
+  }
+  rm(df)
+  rm(i)
+  rm(files)
+} 
+```
+
+```{r}
+icis <- left_join(ttf, the, by = "Indicator") %>%
+  left_join(vtp, by = "Indicator") %>%
+  mutate(across(c('TTF Bid', 'TTF Offer', 'TTF Mid',
+                  'THE Bid', 'THE Offer', 'THE Mid',
+                  'CZ-VTP Bid', 'CZ-VTP Offer', 'CZ-VTP Mid'), as.numeric)) %>% 
+   mutate(across(where(is.character), ~ replace(., is.na(.), "")))
+```
+
+```{r}
+lines <- icis %>% 
+  filter(ifelse(Day == "pa", Indicator %in% c("Natural Gas Weekend+0", "Natural Gas Day-ahead"), Indicator == "Natural Gas Day-ahead")) %>% 
+  filter(str_detect(Indicator, "^Natural")) 
+
+day <- unique(lines$Day)
+
+if (day == "pa"){
+  lines <- rbind(lines, lines[rep(2, 1), ])
+  # lines$deli[lines$Indicator == "Natural Gas Day-ahead"] <- lines$publ+3
+  lines$deli[nrow(lines)] <- lines$publ+2
+  lines <- lines[order(lines$deli), ]
+} else{
+  lines$deli <- lines$publ+1
+}
+
+da <- lines %>% 
+  mutate('Publication date' = format(publ, "%d.%m.%Y"),
+         'Delivery date' = format(deli, "%d.%m.%Y")) %>% 
+  select(-publ, -deli) %>% 
+  relocate('Publication date', 'Delivery date', .after = Day)
+
+rm(lines)
+```
+
+```{r}
+append_icis <- "C:/Users/krizova/Documents/reports/ICISHeren_harvestedReports_complete.xlsx"
+append_to_excel(icis, append_icis)
+
+# backup
+file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_DA_WE.xlsx"),
+          to = paste0(path_out, "dawe_backup/ICISHeren_harvestedReports_DA_WE.xlsx"))
+
+# append
+wb <- loadWorkbook("C:/Users/krizova/Documents/reports/ICISHeren_harvestedReports_DA_WE.xlsx")
+existing_data <- read.xlsx(wb, sheet = "Sheet1")
+new_row <- da
+start_row <- nrow(existing_data) + 2  # +2 to account for header row
+writeData(wb, sheet = "Sheet1", x = new_row, startRow = start_row, colNames = FALSE)
+
+# save
+style_DD <- createStyle(fgFill = "lightgreen")
+style_TTF <- createStyle(fgFill = "slategray1")
+style_THE <- createStyle(fgFill = "lemonchiffon2")
+style_VTP <- createStyle(fgFill = "mistyrose2")
+addStyle(wb, sheet = "Sheet1", style = style_DD, cols = 3, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, sheet = "Sheet1", style = style_TTF, cols = 7:9, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, sheet = "Sheet1", style = style_THE, cols = 11:13, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, sheet = "Sheet1", style = style_VTP, cols = 15:17, rows = 1:1000, gridExpand = TRUE)
+freezePane(wb, sheet = "Sheet1", firstActiveRow = 2)
+saveWorkbook(wb, "C:/Users/krizova/Documents/reports/ICISHeren_harvestedReports_DA_WE.xlsx", overwrite = T)
+```
