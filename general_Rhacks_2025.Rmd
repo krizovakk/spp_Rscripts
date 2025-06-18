@@ -72,6 +72,7 @@ remove single file or list of files with specific name pattern
 
 ```{r eval=F}
 rm(df) 
+rm(df1, df2)
 rm(list=ls(pattern="df_"))
 ```
 
