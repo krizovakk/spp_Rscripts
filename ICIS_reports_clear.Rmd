@@ -43,9 +43,18 @@ append_to_excel <- function(df, file_path, sheet = 1) {
   # Save workbook
   saveWorkbook(wb, file = file_path, overwrite = TRUE)
 }
-```
 
-```{r}
+core_ttf <- read.csv(paste0(path_in, "20250611_Natural Gas-Contract Prices_TTF.csv"), header = TRUE, sep = ",")
+core_the <- read.csv(paste0(path_in, "20250611_Natural Gas-Contract Prices_THE.csv"), header = TRUE, sep = ",")
+core_vtp <- read.csv(paste0(path_in, "20250611_Natural Gas-Contract Prices_CZ-VTP.csv"), header = TRUE, sep = ",")
+
+f <- sum(grepl("^Natural Gas", core_ttf$Name))
+h <- sum(grepl("^Natural Gas", core_the$Name))
+c <- sum(grepl("^Natural Gas", core_vtp$Name))
+print(f)
+print(h)
+print(c)
+
 Ltrh <- c("TTF", "THE", "VTP") 
 for (i in Ltrh) {
   files <- list.files("X:/ICIS_Heren/", pattern = paste0(i, ".csv"), full.names = T) 
@@ -56,9 +65,8 @@ for (i in Ltrh) {
           to = path_in)
   }
 } 
-```
 
-```{r}
+
 Ltrh <- c("TTF", "THE", "VTP")
 for (i in Ltrh) {
   files <- list.files(path_in, pattern = paste0(i, ".csv"), full.names = T) 
@@ -99,7 +107,7 @@ for (i in Ltrh) {
     df <- df %>% select("Day" = Den, publ, deli, "Delivery day" = deli_day, Indicator, Period, "TTF Bid" = Bid, "TTF Offer" = Offer, "TTF Mid" = Mid.Price, "_" = empty_col) 
     assign("ttf", df)
   } else if (i == "THE"){
-    df <- df %>% select(Indicator, "THE Bid" = Bid, "THR Offer" = Offer, "THE Mid" = Mid.Price, "-" = empty_col) 
+    df <- df %>% select(Indicator, "THE Bid" = Bid, "THE Offer" = Offer, "THE Mid" = Mid.Price, "-" = empty_col) 
     assign("the", df)
   } else if (i == "VTP"){
     df <- df %>% select(Indicator, "CZ-VTP Bid" = Bid, "CZ-VTP Offer" = Offer, "CZ-VTP Mid" = Mid.Price) 
@@ -112,18 +120,16 @@ for (i in Ltrh) {
   rm(i)
   rm(files)
 } 
-```
 
-```{r}
+
 icis <- left_join(ttf, the, by = "Indicator") %>%
   left_join(vtp, by = "Indicator") %>%
   mutate(across(c('TTF Bid', 'TTF Offer', 'TTF Mid',
                   'THE Bid', 'THE Offer', 'THE Mid',
                   'CZ-VTP Bid', 'CZ-VTP Offer', 'CZ-VTP Mid'), as.numeric)) %>% 
    mutate(across(where(is.character), ~ replace(., is.na(.), "")))
-```
 
-```{r}
+
 lines <- icis %>% 
   filter(ifelse(Day == "pa", Indicator %in% c("Natural Gas Weekend+0", "Natural Gas Day-ahead"), Indicator == "Natural Gas Day-ahead")) %>% 
   filter(str_detect(Indicator, "^Natural")) 
@@ -146,15 +152,15 @@ da <- lines %>%
   relocate('Publication date', 'Delivery date', .after = Day)
 
 rm(lines)
-```
 
-```{r}
+
 append_icis <- "C:/Users/krizova/Documents/reports/ICISHeren_harvestedReports_complete.xlsx"
 append_to_excel(icis, append_icis)
 
 # backup
 file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_DA_WE.xlsx"),
-          to = paste0(path_out, "dawe_backup/ICISHeren_harvestedReports_DA_WE.xlsx"))
+          to = paste0(path_out, "dawe_backup/ICISHeren_harvestedReports_DA_WE.xlsx"),
+          overwrite = TRUE)
 
 # append
 wb <- loadWorkbook("C:/Users/krizova/Documents/reports/ICISHeren_harvestedReports_DA_WE.xlsx")
@@ -173,5 +179,8 @@ addStyle(wb, sheet = "Sheet1", style = style_TTF, cols = 7:9, rows = 1:1000, gri
 addStyle(wb, sheet = "Sheet1", style = style_THE, cols = 11:13, rows = 1:1000, gridExpand = TRUE)
 addStyle(wb, sheet = "Sheet1", style = style_VTP, cols = 15:17, rows = 1:1000, gridExpand = TRUE)
 freezePane(wb, sheet = "Sheet1", firstActiveRow = 2)
+setColWidths(wb, sheet = "Sheet1", cols = 1:ncol(df), widths = "auto")
 saveWorkbook(wb, "C:/Users/krizova/Documents/reports/ICISHeren_harvestedReports_DA_WE.xlsx", overwrite = T)
+
+print(paste0("ICIS Heren report for ", da$`Delivery date` , " completed."))
 ```
