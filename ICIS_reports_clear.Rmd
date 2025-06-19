@@ -173,9 +173,9 @@ rm(lines)
 # RESULT 2: COMPLETE ICIS ======================================================
 
 icis <- cons %>% 
-  mutate(`TTF - THE` = `TTF Mid`-`THE Mid`,
-         `TTF - CZ-VTP` = `TTF Mid`-`CZ-VTP Mid`,
-         `THE - CZ-VTP` = `THE Mid`-`CZ-VTP Mid`,
+ mutate(`THE/TTF` = `THE Mid`-`TTF Mid`,
+         `CZ-VTP/TTF` = `CZ-VTP Mid`-`TTF Mid`,
+         `CZ-VTP/THE` = `CZ-VTP Mid`-`THE Mid`,
          `Publication date` = format(publ, "%d.%m.%Y"),
          `Delivery date` = ifelse(str_detect(Indicator, "Day-ahead"), format(deli, "%d.%m.%Y"), "")) %>% 
   select(-publ, -deli) %>% 
