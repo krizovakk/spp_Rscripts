@@ -727,6 +727,13 @@ nam3
 colnames(kmen) <- paste0("kmen_", colnames(kmen))
 ```
 
+### rename columns based on pattern
+
+```{r}
+names(df) <- ifelse(grepl("pat1|pat2|pat3", names(df)), paste0("NEW NAME ", names(df)), names(df))
+```
+
+
 ### merge two columns with not complete information
 
 column 1 has some NAs  

@@ -1,5 +1,5 @@
 ---
-title: "ICIS Heren reports"
+title: "ICIS Heren reports - harvesting"
 author: "Katerina Krizova"
 date: "`r Sys.Date()`"
 output:
@@ -13,24 +13,22 @@ output:
 ---
 
 ```{r, echo=FALSE}
-
 # PACKAGES
 
-# install.packages("tidyverse") 
-# install.packages("openxlsx")
 require(tidyverse)
 require(openxlsx)
 
 # SETTINGS
 
-Sys.setlocale("LC_TIME", "C")
+Sys.setlocale("LC_TIME", "C") # dulezite pro praci s datumy
 
 # PATHS
 
-path_in <- "C:/Users/krizova/Documents/reports/csv_oper/"
-path_out <- "C:/Users/krizova/Documents/reports/"
+path_in <- "C:/Users/krizova/Documents/R/ICISHeren/csv_oper/"
+path_bu <- "C:/Users/krizova/Documents/R/ICISHeren/xlsx_results/d-1_backup/"
+path_out <- "C:/Users/krizova/Documents/R/ICISHeren/xlsx_results/"
 
-# FUNCTIONS 
+# FUNCTIONS
 
 # select_optional <- function(df, optional_cols) {
 #   existing_cols <- intersect(optional_cols, colnames(df))
@@ -39,7 +37,7 @@ path_out <- "C:/Users/krizova/Documents/reports/"
 
 append_to_excel <- function(df, file_path, sheet = 1) {
   library(openxlsx)
-  
+
   if (file.exists(file_path)) {
     # Load workbook and get next available row
     wb <- loadWorkbook(file_path)
@@ -51,15 +49,15 @@ append_to_excel <- function(df, file_path, sheet = 1) {
     addWorksheet(wb, sheetName = ifelse(is.numeric(sheet), "Sheet1", sheet))
     next_row <- 1
   }
-
   # Write data (only write header if first row)
   writeData(wb, sheet = sheet, x = df, startRow = next_row,
             colNames = (next_row == 1))
-  
+  setColWidths(wb, sheet = "Sheet1", cols = 1:ncol(df), widths = "auto")
+  freezePane(wb, sheet = "Sheet1", firstActiveRow = 2)
+  addStyle(wb, "Sheet1", createStyle(textDecoration = "bold"), rows = 1, cols = 1:100, gridExpand = TRUE)
   # Save workbook
   saveWorkbook(wb, file = file_path, overwrite = TRUE)
 }
-
 ```
 
 # ABOUT
@@ -74,48 +72,28 @@ TO DO:
 2) zalozit excel, ktery bude vypadat podobne jako ten aktualni, a vest info paralelne
 3) pokusit se zautomatizovat stahovani 3 csv z webu
 
-# INIT CHECK
-
-## read
-
-```{r}
-core_ttf <- read.csv(paste0(path_in, "20250611_Natural Gas-Contract Prices_TTF.csv"), header = TRUE, sep = ",")
-core_the <- read.csv(paste0(path_in, "20250611_Natural Gas-Contract Prices_THE.csv"), header = TRUE, sep = ",")
-core_vtp <- read.csv(paste0(path_in, "20250611_Natural Gas-Contract Prices_CZ-VTP.csv"), header = TRUE, sep = ",")
-```
-
-## check indicators
-
-dulezite pro join!
-pokud by napriklad the obsahoval vice indikatoru, nez ttf. je treba provest join jinak
-
-```{r}
-f <- sum(grepl("^Natural Gas", core_ttf$Name))
-h <- sum(grepl("^Natural Gas", core_the$Name))
-c <- sum(grepl("^Natural Gas", core_vtp$Name))
-
-f > h & f > c # chceme TRUE
-```
 
 # PROCESS
 
-## backup
+## copy latest csv from x to c
 
 nepracuju se stazenymi csv
-kopiruju je k sobe do 'reports/csv_oper'
+kopiruju je k sobe do '/csv_oper'
 provedu harvest a smazu
 
 ```{r}
-Ltrh <- c("TTF", "THE", "VTP") 
+Ltrh <- c("TTF", "THE", "VTP")
 for (i in Ltrh) {
-  files <- list.files("X:/ICIS_Heren/", pattern = paste0(i, ".csv"), full.names = T) 
+  files <- list.files("X:/ICIS_Heren/", pattern = paste0(i, ".csv"), full.names = T)
   if (length(files) > 0) {
     info <- file.info(files)
     newest_file <- rownames(info)[which.max(info$mtime)]
     file.copy(from = newest_file,
           to = path_in)
   }
-} 
+}
+
+rm(info)
 ```
 
 ## read & modify
@@ -132,8 +110,6 @@ the = trh Germany
 vtp = trh CZ VTP
 
 ### loop
-
-funkcni
 
 ```{r}
 Ltrh <- c("TTF", "THE", "VTP")
@@ -173,15 +149,14 @@ for (i in Ltrh) {
     warning("Not the robots you're looking for.")
   }
   if (i == "TTF"){
-    df <- df %>% select("Day" = Den, publ, deli, "Delivery day" = deli_day, Indicator, Period, "TTF Bid" = Bid, "TTF Offer" = Offer, "TTF Mid" = Mid.Price, "_" = empty_col) 
+    df <- df %>% select("Publication day" = Den, publ, deli, "Delivery day" = deli_day, Indicator, Period, "TTF Bid" = Bid, "TTF Offer" = Offer, "TTF Mid" = Mid.Price, "*" = empty_col) 
     assign("ttf", df)
   } else if (i == "THE"){
-    df <- df %>% select(Indicator, "THE Bid" = Bid, "THE Offer" = Offer, "THE Mid" = Mid.Price, "-" = empty_col) 
+    df <- df %>% select(Indicator, "THE Bid" = Bid, "THE Offer" = Offer, "THE Mid" = Mid.Price, "**" = empty_col) 
     assign("the", df)
   } else if (i == "VTP"){
-    df <- df %>% select(Indicator, "CZ-VTP Bid" = Bid, "CZ-VTP Offer" = Offer, "CZ-VTP Mid" = Mid.Price) 
+    df <- df %>% select(Indicator, "CZ-VTP Bid" = Bid, "CZ-VTP Offer" = Offer, "CZ-VTP Mid" = Mid.Price, "***" = empty_col) 
     assign("vtp", df)
-    
   } else {
     warning("I have a bad feeling about this.")
   }
@@ -191,12 +166,18 @@ for (i in Ltrh) {
 } 
 ```
 
+## check number of rows
+
+```{r}
+print(paste("TTF has more rows than TTF and VTP:", 
+            nrow(ttf) > nrow(the) & nrow(ttf) > nrow(vtp))) # chceme TRUE
+```
 ## join
 
 postupny join tri df do vysledneho icis
 
 ```{r}
-icis <- left_join(ttf, the, by = "Indicator") %>%
+cons <- left_join(ttf, the, by = "Indicator") %>%
   left_join(vtp, by = "Indicator") %>%
   # replace(is.na(.), "") %>%
   mutate(across(c('TTF Bid', 'TTF Offer', 'TTF Mid',
@@ -206,21 +187,31 @@ icis <- left_join(ttf, the, by = "Indicator") %>%
    mutate(across(where(is.character), ~ replace(., is.na(.), "")))
 ```
 
-
-## da/we
+## result 1: da/we/ma WIP
 
 vyber radku, kteryobsahuje hodnotu DA nebo WE
 
 lines = vybrane rady
 da = vybrane radky po uprave k finalnimu pripojeni do hlavniho excelu
 
+pro zachovani formatovani i v rezimu append musime excel naloadovat, pripojit radky a pak ulozit nove
+
 ```{r}
+da <- cons %>% 
+  filter(ifelse(`Publication day` == "pa", Indicator %in% c("Natural Gas Weekend+0", "Natural Gas Day-ahead"), Indicator == "Natural Gas Day-ahead")) %>% 
+  filter(str_detect(Indicator, "^Natural"))
+names(da) <- ifelse(grepl("Bid|Offer|Mid", names(da)), paste0("(d) ", names(da)), names(da))
 
-lines <- icis %>% 
-  filter(ifelse(Day == "pa", Indicator %in% c("Natural Gas Weekend+0", "Natural Gas Day-ahead"), Indicator == "Natural Gas Day-ahead")) %>% 
-  filter(str_detect(Indicator, "^Natural")) 
+mo <- cons %>% 
+  filter(str_detect(Indicator, "Natural Gas Month.1")) %>%  # z nejakeho duvodu chce cely nazev. regex nefunguje
+  select(-'Publication day', -deli, -publ, -'Delivery day')
+names(mo) <- ifelse(grepl("Indicator|Period|Bid|Offer|Mid", names(mo)), paste0("(m) ", names(mo)), names(mo))
+names(mo) <- ifelse(grepl("\\*+", names(mo)), paste0("***", names(mo)), names(mo))
 
-day <- unique(lines$Day)
+lines <- cbind(da, mo) %>% 
+  select(-`******`)
+
+day <- unique(lines$`Publication day`)
 
 if (day == "pa"){
   lines <- rbind(lines, lines[rep(2, 1), ])
@@ -231,80 +222,103 @@ if (day == "pa"){
   lines$deli <- lines$publ+1
 }
 
-da <- lines %>% 
+dawemo <- lines %>% 
   mutate('Publication date' = format(publ, "%d.%m.%Y"),
          'Delivery date' = format(deli, "%d.%m.%Y")) %>% 
   select(-publ, -deli) %>% 
-  relocate('Publication date', 'Delivery date', .after = Day)
+  relocate('Publication date', 'Delivery date', .after = `Publication day`)
 
 rm(lines)
+
+# vybehne Warning, evidentne nevadi
 ```
 
-# SAVE
+## result 2: complete icis DONE
 
-## append da/we and backup icis
+-- doplni spready
+-- pripoji k excelu na C
 
 ```{r}
-# append_da <- "C:/Users/krizova/Documents/reports/ICISHeren_harvestedReports_DA_WE.xlsx"
-# append_to_excel(da, append_da)
+icis <- cons %>% 
+  mutate(`TTF - THE` = `TTF Mid`-`THE Mid`,
+         `TTF - CZ-VTP` = `TTF Mid`-`CZ-VTP Mid`,
+         `THE - CZ-VTP` = `THE Mid`-`CZ-VTP Mid`,
+         `Publication date` = format(publ, "%d.%m.%Y"),
+         `Delivery date` = ifelse(str_detect(Indicator, "Day-ahead"), format(deli, "%d.%m.%Y"), "")) %>% 
+  select(-publ, -deli) %>% 
+  relocate(`Publication date`, `Delivery date`, .after = `Publication day`)
 
-append_icis <- "C:/Users/krizova/Documents/reports/ICISHeren_harvestedReports_complete.xlsx"
+append_icis <- paste0(path_out, "ICISHeren_harvestedReports_complete.xlsx")
 append_to_excel(icis, append_icis)
 ```
 
-## DA/WE formatted excel
+
+## export to excel
 
 pro zachovani formatovani i v rezimu append musime excel naloadovat, pripojit radky a pak ulozit nove
 
 ```{r}
-#1st round
+# 1st round
 # wb <- createWorkbook()
 # addWorksheet(wb, "Sheet1")
-# writeData(wb, sheet = "Sheet1", x = da)
-# saveWorkbook(wb, "C:/Users/krizova/Documents/reports/ICISHeren_harvestedReports_DA_WE.xlsx")
+# writeData(wb, sheet = "Sheet1", x = dawemo)
+# saveWorkbook(wb, paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"))
 
-# backup
-file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_DA_WE.xlsx"),
-          to = paste0(path_out, "dawe_backup/ICISHeren_harvestedReports_DA_WE.xlsx"))
-
-# append
-wb <- loadWorkbook("C:/Users/krizova/Documents/reports/ICISHeren_harvestedReports_DA_WE.xlsx")
+# every other round - append
+wb <- loadWorkbook(paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"))
 existing_data <- read.xlsx(wb, sheet = "Sheet1")
-new_row <- da
+new_row <- dawemo
 start_row <- nrow(existing_data) + 2  # +2 to account for header row
 writeData(wb, sheet = "Sheet1", x = new_row, startRow = start_row, colNames = FALSE)
 
-# both
-style_TTF <- createStyle(fgFill = "slategray1")
-style_THE <- createStyle(fgFill = "lemonchiffon2")
+# style and save
+style_DD <- createStyle(fgFill = "darkseagreen1")
+style_TTF <- createStyle(fgFill = "powderblue")
+style_THE <- createStyle(fgFill = "palegoldenrod")
 style_VTP <- createStyle(fgFill = "mistyrose2")
+addStyle(wb, sheet = "Sheet1", style = style_DD, cols = 3, rows = 1:1000, gridExpand = TRUE)
 addStyle(wb, sheet = "Sheet1", style = style_TTF, cols = 7:9, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, sheet = "Sheet1", style = style_TTF, cols = 21:23, rows = 1:1000, gridExpand = TRUE)
 addStyle(wb, sheet = "Sheet1", style = style_THE, cols = 11:13, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, sheet = "Sheet1", style = style_THE, cols = 25:27, rows = 1:1000, gridExpand = TRUE)
 addStyle(wb, sheet = "Sheet1", style = style_VTP, cols = 15:17, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, sheet = "Sheet1", style = style_VTP, cols = 29:31, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, "Sheet1", createStyle(textDecoration = "bold"), rows = 1, cols = 1:100, gridExpand = TRUE)
 freezePane(wb, sheet = "Sheet1", firstActiveRow = 2)
-saveWorkbook(wb, "C:/Users/krizova/Documents/reports/ICISHeren_harvestedReports_DA_WE.xlsx", overwrite = T)
+setColWidths(wb, sheet = "Sheet1", cols = 1:100, widths = "auto") 
+saveWorkbook(wb, paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"), overwrite = T)
 ```
 
-# -- notes
+# DELETE & BACKUP
+
+- !!! UNCOMMENT TO EXECTUTE !!! !!! UNCOMMENT TO EXECTUTE !!! !!! UNCOMMENT TO EXECTUTE !!!
+
+- delete all files from csv_oper
 
 ```{r}
-# # Create a style
-# style_TTF <- createStyle(fgFill = "lightskyblue2")
-# style_THR <- createStyle(fgFill = "lightyellow3")
-# style_VTP <- createStyle(fgFill = "rosybrown1")
-# 
-# # Apply style to a column
-# addStyle(da, sheet = "Sheet1", style = style_TTF, rows = 1:1000, cols = 6:8, gridExpand = TRUE)
-# 
-
-# header_style <- createStyle(
-#   textDecoration = "bold",   # Makes the text bold
-#   halign = "center",         # Horizontal alignment (centered)
-#   valign = "center",         # Vertical alignment (optional)
-#  
-#   border = "Bottom"          # Optional: bottom border
-# )
-
-
+unlink(paste0(path_in, "*"), recursive = FALSE)
 ```
+
+- backup results from d-1
+
+```{r}
+# file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"),
+#           to = path_bu,
+#           overwrite = TRUE)
+# file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_complete.xlsx"),
+#           to = path_bu,
+#           overwrite = TRUE)
+```
+
+- copy to X
+
+```{r}
+# file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"),
+#           to = "X:/Nakup _ NEW/Pracovni/sklizene ICIS Heren/ICISHeren_harvestedReports_DA_WE_MA.xlsx",
+#           overwrite = TRUE)
+# file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_complete.xlsx"),
+#           to = "X:/Nakup _ NEW/Pracovni/sklizene ICIS Heren/ICISHeren_harvestedReports_complete.xlsx",
+#           overwrite = TRUE)
+# ```
+
 

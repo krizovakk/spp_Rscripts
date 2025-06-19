@@ -21,14 +21,15 @@ output:
 
 ```{r, echo=FALSE}
 
-# PACKAGES, SETTINGS, PATHS, FUNCTIONS
+# PACKAGES, SETTINGS, PATHS, FUNCTIONS =========================================
+
 require(tidyverse)
 require(openxlsx)
 
 Sys.setlocale("LC_TIME", "C")
 
 path_in <- "C:/Users/krizova/Documents/R/ICISHeren/csv_oper/"
-path_bu <- "C:/Users/krizova/Documents/R/ICISHeren/xlsx_results/d-1_backup"
+path_bu <- "C:/Users/krizova/Documents/R/ICISHeren/xlsx_results/d-1_backup/"
 path_out <- "C:/Users/krizova/Documents/R/ICISHeren/xlsx_results/"
 
 append_to_excel <- function(df, file_path, sheet = 1) {
@@ -51,7 +52,7 @@ append_to_excel <- function(df, file_path, sheet = 1) {
   saveWorkbook(wb, file = file_path, overwrite = TRUE)
 }
 
-# COPY LATEST FILES FROM X TO C
+# COPY LATEST FILES FROM X TO C ================================================
 
 Ltrh <- c("TTF", "THE", "VTP") 
 for (i in Ltrh) {
@@ -66,12 +67,11 @@ for (i in Ltrh) {
 
 rm(info)
 
-# LOOP READ AND CLEAR THREE SEPARATE FILES
+# LOOP READ AND CLEAR THREE SEPARATE FILES =====================================
 
 Ltrh <- c("TTF", "THE", "VTP")
 for (i in Ltrh) {
   files <- list.files(path_in, pattern = paste0(i, ".csv"), full.names = T) 
-  # df <- read.csv(paste0(path_in, file), header = TRUE, sep = ",") %>% 
   if (length(files) > 0) {
     info <- file.info(files)
     newest_file <- rownames(info)[which.max(info$mtime)]
@@ -105,15 +105,14 @@ for (i in Ltrh) {
     warning("Not the robots you're looking for.")
   }
   if (i == "TTF"){
-    df <- df %>% select("Publication day" = Den, publ, deli, "Delivery day" = deli_day, Indicator, Period, "TTF Bid" = Bid, "TTF Offer" = Offer, "TTF Mid" = Mid.Price, "_" = empty_col)
+    df <- df %>% select("Publication day" = Den, publ, deli, "Delivery day" = deli_day, Indicator, Period, "TTF Bid" = Bid, "TTF Offer" = Offer, "TTF Mid" = Mid.Price, "*" = empty_col)
     assign("ttf", df)
   } else if (i == "THE"){
-    df <- df %>% select(Indicator, "THE Bid" = Bid, "THE Offer" = Offer, "THE Mid" = Mid.Price, "-" = empty_col) 
+    df <- df %>% select(Indicator, "THE Bid" = Bid, "THE Offer" = Offer, "THE Mid" = Mid.Price, "**" = empty_col) 
     assign("the", df)
   } else if (i == "VTP"){
     df <- df %>% select(Indicator, "CZ-VTP Bid" = Bid, "CZ-VTP Offer" = Offer, "CZ-VTP Mid" = Mid.Price) 
     assign("vtp", df)
-    
   } else {
     warning("I have a bad feeling about this.")
   }
@@ -122,7 +121,7 @@ for (i in Ltrh) {
   rm(files)
 } 
 
-# CHECK NUMBER OF ROWS
+# CHECK NUMBER OF ROWS =========================================================
 
 print(paste("TTF has more rows than TTF and VTP:", 
             nrow(ttf) > nrow(the) & nrow(ttf) > nrow(vtp))) # chceme TRUE
@@ -136,39 +135,23 @@ cons <- left_join(ttf, the, by = "Indicator") %>%
                   'CZ-VTP Bid', 'CZ-VTP Offer', 'CZ-VTP Mid'), as.numeric)) %>% 
    mutate(across(where(is.character), ~ replace(., is.na(.), "")))
 
-# RESULT 1: DA, WE, MA
+# RESULT 1: DA, WE, MA =========================================================
 
+da <- cons %>% 
+  filter(ifelse(`Publication day` == "pa", Indicator %in% c("Natural Gas Weekend+0", "Natural Gas Day-ahead"), Indicator == "Natural Gas Day-ahead")) %>% 
+  filter(str_detect(Indicator, "^Natural"))
+names(da) <- ifelse(grepl("Bid|Offer|Mid", names(da)), paste0("(d) ", names(da)), names(da))
 
+mo <- cons %>% 
+  filter(str_detect(Indicator, "Natural Gas Month.1")) %>%  # z nejakeho duvodu chce cely nazev. regex nefunguje
+  select(-'Publication day', -deli, -publ, -'Delivery day')
+names(mo) <- ifelse(grepl("Indicator|Period|Bid|Offer|Mid", names(mo)), paste0("(m) ", names(mo)), names(mo))
+names(mo) <- ifelse(grepl("\\*+", names(mo)), paste0("***", names(mo)), names(mo))
 
-# RESULT 2: COMPLETE ICIS 
+lines <- cbind(da, mo) %>% 
+  select(-`******`)
 
-icis <- cons %>% 
-  mutate(x = "",
-         `spread TTF - THE` = `TTF Mid`-`THE Mid`,
-         `spread TTF - CZ-VTP` = `TTF Mid`-`CZ-VTP Mid`,
-         `spread THE - CZ-VTP` = `THE Mid`-`CZ-VTP Mid`,
-         `Publication date` = format(publ, "%d.%m.%Y"),
-         `Delivery date` = ifelse(str_detect(Indicator, "Day-ahead"), format(deli, "%d.%m.%Y"), "")) %>% 
-  select(-publ, -deli) %>% 
-  relocate(`Publication date`, `Delivery date`, .after = `Publication day`)
-
-append_icis <- paste0(path_out, "ICISHeren_harvestedReports_complete.xlsx")
-append_to_excel(icis, append_icis)
-# end of icis | end of icis | end of icis | end of icis | end of icis | end of icis | 
-
-
-
-
-
-
-
-
-
-lines <- icis %>% 
-  filter(ifelse(Day == "pa", Indicator %in% c("Natural Gas Weekend+0", "Natural Gas Day-ahead"), Indicator == "Natural Gas Day-ahead")) %>% 
-  filter(str_detect(Indicator, "^Natural")) 
-
-day <- unique(lines$Day)
+day <- unique(lines$`Publication day`)
 
 if (day == "pa"){
   lines <- rbind(lines, lines[rep(2, 1), ])
@@ -179,46 +162,62 @@ if (day == "pa"){
   lines$deli <- lines$publ+1
 }
 
-da <- lines %>% 
+dawemo <- lines %>% 
   mutate('Publication date' = format(publ, "%d.%m.%Y"),
          'Delivery date' = format(deli, "%d.%m.%Y")) %>% 
   select(-publ, -deli) %>% 
-  relocate('Publication date', 'Delivery date', .after = Day)
+  relocate('Publication date', 'Delivery date', .after = `Publication day`)
 
 rm(lines)
 
+# RESULT 2: COMPLETE ICIS ======================================================
 
-append_icis <- "C:/Users/krizova/Documents/reports/ICISHeren_harvestedReports_complete.xlsx"
+icis <- cons %>% 
+  mutate(`TTF - THE` = `TTF Mid`-`THE Mid`,
+         `TTF - CZ-VTP` = `TTF Mid`-`CZ-VTP Mid`,
+         `THE - CZ-VTP` = `THE Mid`-`CZ-VTP Mid`,
+         `Publication date` = format(publ, "%d.%m.%Y"),
+         `Delivery date` = ifelse(str_detect(Indicator, "Day-ahead"), format(deli, "%d.%m.%Y"), "")) %>% 
+  select(-publ, -deli) %>% 
+  relocate(`Publication date`, `Delivery date`, .after = `Publication day`)
+
+append_icis <- paste0(path_out, "ICISHeren_harvestedReports_complete.xlsx")
 append_to_excel(icis, append_icis)
 
-# backup
-file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_DA_WE.xlsx"),
-          to = paste0(path_out, "dawe_backup/ICISHeren_harvestedReports_DA_WE.xlsx"),
-          overwrite = TRUE)
+# EXPORT TO EXCEL ==============================================================
 
-# append
-wb <- loadWorkbook("C:/Users/krizova/Documents/reports/ICISHeren_harvestedReports_DA_WE.xlsx")
+# 1st round
+# wb <- createWorkbook()
+# addWorksheet(wb, "Sheet1")
+# writeData(wb, sheet = "Sheet1", x = dawemo)
+# saveWorkbook(wb, paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"))
+
+# every other round - append
+wb <- loadWorkbook(paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"))
 existing_data <- read.xlsx(wb, sheet = "Sheet1")
-new_row <- da
+new_row <- dawemo
 start_row <- nrow(existing_data) + 2  # +2 to account for header row
 writeData(wb, sheet = "Sheet1", x = new_row, startRow = start_row, colNames = FALSE)
 
-# save
-style_DD <- createStyle(fgFill = "lightgreen")
-style_TTF <- createStyle(fgFill = "slategray1")
-style_THE <- createStyle(fgFill = "lemonchiffon2")
+# style and save
+style_DD <- createStyle(fgFill = "darkseagreen1")
+style_TTF <- createStyle(fgFill = "powderblue")
+style_THE <- createStyle(fgFill = "palegoldenrod")
 style_VTP <- createStyle(fgFill = "mistyrose2")
 addStyle(wb, sheet = "Sheet1", style = style_DD, cols = 3, rows = 1:1000, gridExpand = TRUE)
 addStyle(wb, sheet = "Sheet1", style = style_TTF, cols = 7:9, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, sheet = "Sheet1", style = style_TTF, cols = 21:23, rows = 1:1000, gridExpand = TRUE)
 addStyle(wb, sheet = "Sheet1", style = style_THE, cols = 11:13, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, sheet = "Sheet1", style = style_THE, cols = 25:27, rows = 1:1000, gridExpand = TRUE)
 addStyle(wb, sheet = "Sheet1", style = style_VTP, cols = 15:17, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, sheet = "Sheet1", style = style_VTP, cols = 29:31, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, "Sheet1", createStyle(textDecoration = "bold"), rows = 1, cols = 1:100, gridExpand = TRUE)
 freezePane(wb, sheet = "Sheet1", firstActiveRow = 2)
-setColWidths(wb, sheet = "Sheet1", cols = 1:ncol(df), widths = "auto")
-saveWorkbook(wb, "C:/Users/krizova/Documents/reports/ICISHeren_harvestedReports_DA_WE.xlsx", overwrite = T)
+setColWidths(wb, sheet = "Sheet1", cols = 1:100, widths = "auto") 
+saveWorkbook(wb, paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"), overwrite = T)
 
-unlink(paste0(path_in, "*"), recursive = FALSE)
+print(paste0("ICIS Heren report for ", dawemo$`Delivery date` , " completed."))
 
-print(paste0("ICIS Heren report for ", da$`Delivery date` , " completed."))
 ```
 
 # BACK-UP
@@ -228,6 +227,27 @@ print(paste0("ICIS Heren report for ", da$`Delivery date` , " completed."))
 -- creates back-up copy for the day
 
 ```{r}
+# DELETE OPER CSV ==============================================================
 
+unlink(paste0(path_in, "*"), recursive = FALSE)
+
+# PERSONAL BACKUP COPY =================== uncomment ===========================
+
+# file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"),
+#           to = path_bu,
+#           overwrite = TRUE)
+# file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_complete.xlsx"),
+#           to = path_bu,
+#           overwrite = TRUE)
+
+# COPY TO NAKUP ========================== uncomment ===========================
+
+# file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"),
+#           to = "X:/Nakup _ NEW/Pracovni/sklizene ICIS Heren/ICISHeren_harvestedReports_DA_WE_MA.xlsx",
+#           overwrite = TRUE)
+# file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_complete.xlsx"),
+#           to = "X:/Nakup _ NEW/Pracovni/sklizene ICIS Heren/ICISHeren_harvestedReports_complete.xlsx",
+#           overwrite = TRUE)
+# ```
 ```
 
