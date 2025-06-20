@@ -111,7 +111,7 @@ for (i in Ltrh) {
     df <- df %>% select(Indicator, "THE Bid" = Bid, "THE Offer" = Offer, "THE Mid" = Mid.Price, "**" = empty_col) 
     assign("the", df)
   } else if (i == "VTP"){
-    df <- df %>% select(Indicator, "CZ-VTP Bid" = Bid, "CZ-VTP Offer" = Offer, "CZ-VTP Mid" = Mid.Price) 
+    df <- df %>% select(Indicator, "CZ-VTP Bid" = Bid, "CZ-VTP Offer" = Offer, "CZ-VTP Mid" = Mid.Price, "***" = empty_col) 
     assign("vtp", df)
   } else {
     warning("I have a bad feeling about this.")
@@ -193,7 +193,7 @@ append_to_excel(icis, append_icis)
 # saveWorkbook(wb, paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"))
 
 # every other round - append
-wb <- loadWorkbook(paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"))
+wb <- loadWorkbook(paste0(path_bu, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"))
 existing_data <- read.xlsx(wb, sheet = "Sheet1")
 new_row <- dawemo
 start_row <- nrow(existing_data) + 2  # +2 to account for header row
@@ -213,7 +213,7 @@ addStyle(wb, sheet = "Sheet1", style = style_VTP, cols = 15:17, rows = 1:1000, g
 addStyle(wb, sheet = "Sheet1", style = style_VTP, cols = 29:31, rows = 1:1000, gridExpand = TRUE)
 addStyle(wb, "Sheet1", createStyle(textDecoration = "bold"), rows = 1, cols = 1:100, gridExpand = TRUE)
 freezePane(wb, sheet = "Sheet1", firstActiveRow = 2)
-setColWidths(wb, sheet = "Sheet1", cols = 1:100, widths = "auto") 
+# setColWidths(wb, sheet = "Sheet1", cols = 1:100, widths = "auto") 
 saveWorkbook(wb, paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"), overwrite = T)
 
 print(paste0("ICIS Heren report for ", dawemo$`Delivery date` , " completed."))

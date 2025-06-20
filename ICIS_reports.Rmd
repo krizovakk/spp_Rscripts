@@ -265,7 +265,7 @@ pro zachovani formatovani i v rezimu append musime excel naloadovat, pripojit ra
 # saveWorkbook(wb, paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"))
 
 # every other round - append
-wb <- loadWorkbook(paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"))
+wb <- loadWorkbook(paste0(path_bu, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"))
 existing_data <- read.xlsx(wb, sheet = "Sheet1")
 new_row <- dawemo
 start_row <- nrow(existing_data) + 2  # +2 to account for header row
