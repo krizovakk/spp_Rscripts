@@ -642,6 +642,16 @@ na.omit()
 
 ## General
 
+### wide to long
+
+```{r}
+egsi <- df %>% 
+  filter(index %in% c("CZ VTP", "THE", "TTF")) %>% 
+  mutate('Delivery date' = date) %>% 
+  pivot_wider(names_from = index, values_from = value)
+```
+
+
 ### replace "" with NA
 
 s pipe jsem zatim cestu nenasla

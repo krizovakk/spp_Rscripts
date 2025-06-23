@@ -233,21 +233,21 @@ unlink(paste0(path_in, "*"), recursive = FALSE)
 
 # PERSONAL BACKUP COPY =================== uncomment ===========================
 
-# file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"),
-#           to = path_bu,
-#           overwrite = TRUE)
-# file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_complete.xlsx"),
-#           to = path_bu,
-#           overwrite = TRUE)
+file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"),
+          to = path_bu,
+          overwrite = TRUE)
+file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_complete.xlsx"),
+          to = path_bu,
+          overwrite = TRUE)
 
 # COPY TO NAKUP ========================== uncomment ===========================
 
-# file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"),
-#           to = "X:/Nakup _ NEW/Pracovni/sklizene ICIS Heren/ICISHeren_harvestedReports_DA_WE_MA.xlsx",
-#           overwrite = TRUE)
-# file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_complete.xlsx"),
-#           to = "X:/Nakup _ NEW/Pracovni/sklizene ICIS Heren/ICISHeren_harvestedReports_complete.xlsx",
-#           overwrite = TRUE)
-# ```
+file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"),
+          to = "X:/Nakup _ NEW/Pracovni/sklizene ICIS Heren/ICISHeren_harvestedReports_DA_WE_MA.xlsx",
+          overwrite = TRUE)
+file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_complete.xlsx"),
+          to = "X:/Nakup _ NEW/Pracovni/sklizene ICIS Heren/ICISHeren_harvestedReports_complete.xlsx",
+          overwrite = TRUE)
+```
 ```
 

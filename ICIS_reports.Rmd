@@ -269,7 +269,7 @@ wb <- loadWorkbook(paste0(path_bu, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"))
 existing_data <- read.xlsx(wb, sheet = "Sheet1")
 new_row <- dawemo
 start_row <- nrow(existing_data) + 2  # +2 to account for header row
-writeData(wb, sheet = "Sheet1", x = new_row, startRow = start_row, colNames = FALSE)
+writeData(wb, sheet = "Sheet1", x = new_row, startRow = start_row, colNames = FALSE, na.string = "")
 
 # style and save
 style_DD <- createStyle(fgFill = "darkseagreen1")
