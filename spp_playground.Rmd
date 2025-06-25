@@ -1,0 +1,287 @@
+---
+title: "SPP Playground"
+author: "Katerina Krizova"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    number_sections: false
+    fig_caption: true
+  fontsize: 11pt
+  geometry: margin=1in
+---
+
+# VR RIZENI ODCHYLKY
+
+VR na dodavatele rizeni odchylky EE
+ted PowereX
+v soutezi 
+  PowereX (chceme i dal)
+  energas
+  Energodata
+
+task:
+  overit, zda nejsou data z energas a Energodat tototzna
+  Market se tak jevi
+  chce overit
+
+task 2:
+  podezreni na to, ze energodata komunikuji s energasem ve dnech, kdy energas jeste nemel data o spotrebe od nas
+  diky tomu energas upravuje predikce blize spotrebe
+  
+  denni predicke za cca 2 mesice
+  dat do grafu oba dodavatele a porovnat krivky
+  
+brainstorm:
+  dodavatel posila predikce v den D na D+1
+  
+ENERGAS:
+  75 csv souboru * 96 radku pro 24*4 (denni pocet 15-minutovek)
+  == 7200 hodnot
+  
+ENERGODATA:
+  77 csv souboru * 96 radku pro 24*4 (denni pocet 15-minutovek)
+  == 7392 hodnot
+
+
+```{r}
+require(tidyverse)
+require(openxlsx)
+
+path_in <- "X:/Nakup _ NEW/Elektřina/VR_rizeni_odchylky_EE/"
+path_out <- "C:/Users/krizova/Documents/R/playground/"
+
+# ERERGAS ======================================================================
+raw_egas <- data.frame()
+Legas <- list.files(paste0(path_in, "energas/predikce_energas/"), full.names = T)
+
+for(i in Legas){
+  a <- read.csv(i, header = TRUE, sep = ";")
+  # a <- read.delim(i, col.names = TRUE)
+  raw_egas <- rbind(raw_egas, a)
+  print(i)
+}
+
+egas <- raw_egas %>% 
+  mutate(datum = case_when(
+    grepl("^\\d{4}-\\d{2}-\\d{2}$", Date) ~ as.Date(Date, format = "%Y-%m-%d"),
+    grepl("^\\d{2}\\.\\d{2}\\.\\d{4}", Date) ~ as.Date(Date, format = "%d.%m.%Y %H:%M"),
+    TRUE ~ as.Date(NA))) %>% 
+  arrange(datum, Period) %>%
+  mutate(id = seq_along(Prediction))
+
+# ERERGODATA ===================================================================
+raw_edat <- data.frame()
+Ledat <- list.files(paste0(path_in, "Energodata/Predikce_energodata/"), full.names = T)
+
+for(i in Ledat){
+  a <- read.xlsx(i)
+  raw_edat <- rbind(raw_edat, a)
+  print(i)
+}
+
+edat <- raw_edat %>% 
+  mutate(datum = as.Date(Timestamp, format = "%Y-%m-%d %H:%M:%S"),
+         tmstmp = as.Date(Timestamp)) %>% 
+  arrange(tmstmp) %>% 
+  mutate(id = seq_along(Predikcia),
+         pred_round2 = round(Predikcia, 2)) %>% 
+  group_by(datum) %>% 
+  mutate(Period = seq_along(Predikcia)) %>% 
+  ungroup()
+
+# POWEREX + SPP SPOTREBA =======================================================
+raw_spp <- read.xlsx(paste0(path_in, "predikce_powerex_spotreba.xlsx"))
+spp <- raw_spp %>% 
+  mutate(datum = as.Date(Den, origin = "1899-12-30"),
+         Period = `čtvrthodina._`)
+
+# JOIN =========================================================================
+
+join <- inner_join(egas %>% select(datum, Period, Prediction), edat %>% select(datum, Period, Predikcia, pred_round2), by = c("datum" = "datum", "Period" = "Period"), keep = T) %>% 
+  mutate(id = seq_along(Predikcia),
+         diff = abs(Prediction-Predikcia),
+         weekday = weekdays(datum.x),
+         dayIndex = as.numeric(factor(datum.x)))
+
+join2 <- inner_join(join, spp %>% select(datum, Period, "powerex" = Pozice.MWh, "spot" = Spotřeba.MWh), 
+                    by = c("datum.x" = "datum", "Period.x" = "Period"), keep = T) %>% 
+  mutate(bigID = seq_along(datum.x))
+
+# join$label_colored <- ifelse(
+#   join$weekday %in% c("Saturday", "Sunday"),
+#   paste0("<span style='color:red;'>", format(join$Date, "%d.%m"), "</span>"),
+#   paste0("<span style='color:black;'>", format(join$Date, "%d.%m"), "</span>")
+# )
+
+# PLOTS ========================================================================
+
+require(ggplot2)
+
+gakt <- ggplot(join2)+
+  # geom_line(aes(x = id, y = spot), colour = "grey40")+
+  geom_line(aes(x = bigID, y = Predikcia), colour = "steelblue2", linewidth = 1.1)+
+  geom_line(aes(x = bigID, y = Prediction), colour = "orange")+
+  # geom_line(aes(x = id, y = powerex), colour = "darkgreen")+
+  labs(x = "date", y = "MW")+
+  theme_minimal()+
+  scale_x_continuous(
+    breaks = join2$bigID[seq(1, nrow(join2), by = 96)],
+    labels = join2$datum.x[seq(1, nrow(join2), by = 96)]
+  ) +
+  labs(y = "difference in MWh")+
+  theme_linedraw()+
+  # theme(axis.text.x = ggtext::element_markdown(angle = 90, vjust = 0.5, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+gakt
+ggsave(paste0(path_out, "kontrola_predikce_energas_energodata.jpg"), device = "jpg", width = 45, height = 8, dpi = 300)
+
+# selected days -- TBD on thursday 20250626
+
+sel_date <- "2025-04-24"
+
+sel <- join2 %>% filter(datum == sel_date)
+
+gsel <- ggplot(sel)+
+  geom_line(aes(x = id, y = spot), colour = "grey40")+
+  geom_line(aes(x = bigID, y = Predikcia), colour = "steelblue2", linewidth = 1.1)+
+  geom_line(aes(x = bigID, y = Prediction), colour = "orange")+
+  labs(x = "date", y = "MW")+
+  theme_minimal()+
+  # scale_x_continuous(
+  #   breaks = sel$bigID[seq(1, nrow(sel), by = 96)],
+  #   labels = sel$datum.x[seq(1, nrow(sel), by = 96)]
+  # ) +
+  labs(x = paste0(sel_date), y = "difference in MWh")+
+  theme_linedraw()+
+  # theme(axis.text.x = ggtext::element_markdown(angle = 90, vjust = 0.5, hjust = 1))
+  theme(axis.text.x = element_blank())
+gsel
+ggsave(paste0(path_out, "graf_energas_energodata_predikce_pro", sel_date), device = "jpg", width = 45, height = 8, dpi = 300)
+
+```
+
+24.04.2025
+26.04.2025
+28.04.2025
+01.05.2025
+02.05.2025
+03.05.2025
+04.05.2025
+05.05.2025
+06.05.2025
+13.05.2025
+19.05.2025
+21.05.2025
+23.05.2025
+24.05.2025
+25.05.2025
+01.06.2025
+07.06.2025
+08.06.2025
+10.06.2025
+
+
+```{r}
+# OLD OLD OLD OLD OLD OLD OLD
+
+library(ggtext)
+library(ragg)
+
+g1 <- ggplot(join)+
+  geom_point(join, mapping = aes(id, Prediction), colour = "blue", size = 0.5)+
+  geom_point(join, mapping = aes(id, pred_round2), colour = "sagegreen", size = 0.5)+
+  theme_minimal()
+  # geom_point(data = egas, mapping = aes(x = datum, y = Prediction), aes(colour = "blue"))+
+  # geom_point(data = edat, mapping = aes(x = datum, y = Predikcia), aes(colour = "red"))
+g1
+
+ggsave(paste0(path_out, "plot.jpg"), device = "jpg", width = 30, height = 8, dpi = 300)
+
+g2 <- ggplot(join) +
+  geom_line(aes(x = id, y = Prediction), colour = "orange", linewidth = 1)+
+  geom_line(aes(x = id, y = pred_round2), colour = "blue")+
+  labs(x = "day no", y = "MW")+
+  theme_minimal()
+g2
+ggsave(paste0(path_out, "plot.jpg"), device = "jpg", width = 40, height = 8, dpi = 300)
+
+# - plot differences
+
+g3 <- ggplot(join, aes(x = id, y = diff))+
+  geom_line(colour = "red")+ #
+  # scale_x_continuous(breaks = join$id, labels = join$datum.x)+
+  scale_x_continuous(
+    breaks = join$id[seq(1, nrow(join), by = 96)],
+    labels = join$datum.x[seq(1, nrow(join), by = 96)]
+  ) +
+  labs(y = "difference in MWh")+
+  theme_linedraw()+
+  # theme(axis.text.x = ggtext::element_markdown(angle = 90, vjust = 0.5, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+g3
+ggsave(paste0(path_out, "diff.jpg"), device = "jpg", width = 45, height = 8, dpi = 300)
+
+
+# weekends in red
+
+label_data <- join %>%
+  group_by(dayIndex, datum.x) %>%
+  summarise(
+    is_weekend = weekdays(datum.x[1]) %in% c("Saturday", "Sunday"),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    label_colored = ifelse(
+      is_weekend,
+      paste0("<span style='color:red;'>", format(datum.x, "%d.%m"), "</span>"),
+      paste0("<span style='color:black;'>", format(datum.x, "%d.%m"), "</span>")))
+
+g4 <- ggplot(join, aes(x = dayIndex, y = diff)) +
+  geom_line() +
+  scale_x_continuous(
+    breaks = label_data$dayIndex,
+    labels = label_data$label_colored
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_markdown(angle = 90, vjust = 0.5, hjust = 1)
+  ) +
+  xlab("Date")
+g4
+
+label_positions <- join %>%
+  group_by(datum.x) %>%
+  summarise(
+    x_pos = min(id),  # or whatever your continuous x-axis variable is
+    is_weekend = weekdays(datum.x[1]) %in% c("Saturday", "Sunday")
+  ) %>%
+  mutate(
+    label_colored = ifelse(
+      is_weekend,
+      paste0("<span style='color:red;'>", format(datum.x, "%d.%m"), "</span>"),
+      paste0("<span style='color:black;'>", format(datum.x, "%d.%m"), "</span>")
+    )
+  )
+
+g5 <- ggplot(join, aes(x = id, y = diff)) +
+  geom_line(colour = "red") +
+  scale_x_continuous(
+    breaks = label_positions$x_pos,
+    labels = label_positions$label_colored
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_markdown(angle = 90, vjust = 0.5, hjust = 1)
+  ) 
+g5
+
+agg_png("C:/Users/krizova/Documents/R/playground/diff_we.png", width = 10, height = 6, units = "in", res = 300)
+print(g5)
+dev.off()
+
+ggsave(paste0(path_out, "diff_we.jpg"), device = "jpg", width = 45, height = 8, dpi = 300)
+```
+
+

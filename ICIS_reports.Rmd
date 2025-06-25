@@ -52,7 +52,7 @@ append_to_excel <- function(df, file_path, sheet = 1) {
   # Write data (only write header if first row)
   writeData(wb, sheet = sheet, x = df, startRow = next_row,
             colNames = (next_row == 1))
-  setColWidths(wb, sheet = "Sheet1", cols = 1:ncol(df), widths = "auto")
+  # setColWidths(wb, sheet = "Sheet1", cols = 1:ncol(df), widths = "auto")
   freezePane(wb, sheet = "Sheet1", firstActiveRow = 2)
   addStyle(wb, "Sheet1", createStyle(textDecoration = "bold"), rows = 1, cols = 1:100, gridExpand = TRUE)
   # Save workbook

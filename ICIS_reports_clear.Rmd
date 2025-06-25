@@ -45,8 +45,8 @@ append_to_excel <- function(df, file_path, sheet = 1) {
     next_row <- 1
   }
   writeData(wb, sheet = sheet, x = df, startRow = next_row,
-            colNames = (next_row == 1))
-  setColWidths(wb, sheet = "Sheet1", cols = 1:ncol(df), widths = "auto")
+            colNames = (next_row == 1), na.string = "")
+  # setColWidths(wb, sheet = "Sheet1", cols = 1:ncol(df), widths = "auto")
   freezePane(wb, sheet = "Sheet1", firstActiveRow = 2)
   addStyle(wb, "Sheet1", createStyle(textDecoration = "bold"), rows = 1, cols = 1:100, gridExpand = TRUE)
   saveWorkbook(wb, file = file_path, overwrite = TRUE)
@@ -197,7 +197,8 @@ wb <- loadWorkbook(paste0(path_bu, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"))
 existing_data <- read.xlsx(wb, sheet = "Sheet1")
 new_row <- dawemo
 start_row <- nrow(existing_data) + 2  # +2 to account for header row
-writeData(wb, sheet = "Sheet1", x = new_row, startRow = start_row, colNames = FALSE)
+writeData(wb, sheet = "Sheet1", x = new_row, 
+          startRow = start_row, colNames = FALSE, na.string = "")
 
 # style and save
 style_DD <- createStyle(fgFill = "darkseagreen1")
@@ -248,6 +249,11 @@ file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"),
 file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_complete.xlsx"),
           to = "X:/Nakup _ NEW/Pracovni/sklizene ICIS Heren/ICISHeren_harvestedReports_complete.xlsx",
           overwrite = TRUE)
+
+# CLEAR ENVIRONMENT
+
+rm(list=ls())
+
 ```
 ```
 

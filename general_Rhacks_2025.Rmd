@@ -68,6 +68,12 @@ df <- read.csv(paste0(path_in, "read.csv"), header = TRUE, sep = ",")
 
 ## Environment
 
+clear the entire environment
+
+```{r}
+rm(list=ls())
+```
+
 remove single file or list of files with specific name pattern
 
 ```{r eval=F}
@@ -477,6 +483,12 @@ new_number = sub("^0+", "", number)
 
 ## DATE
 
+### check format
+
+```{r}
+class(date) # "Date"  # "character"
+```
+
 ### date format
 
 [Date Formats in R](https://www.r-bloggers.com/2013/08/date-formats-in-r/)
@@ -518,6 +530,19 @@ df <- source %>%
 
 Mdat_ser = seriove datum
 Mdat_trans = transformovane datum
+
+### two date formats in one column
+
+2025-04-12 and 15.06.2025 0:00
+
+```{r}
+egas2 <- egas %>% 
+  mutate(DATE_parsed = case_when(
+    grepl("^\\d{4}-\\d{2}-\\d{2}$", Date) ~ as.Date(Date, format = "%Y-%m-%d"),
+    grepl("^\\d{2}\\.\\d{2}\\.\\d{4}", Date) ~ as.Date(Date, format = "%d.%m.%Y %H:%M"),
+    TRUE ~ as.Date(NA)
+  ))
+```
 
 ## STRINGS
 
