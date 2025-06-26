@@ -1,0 +1,218 @@
+---
+title: "SPP Playground"
+author: "Katerina Krizova"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    number_sections: false
+    fig_caption: true
+  fontsize: 11pt
+  geometry: margin=1in
+---
+
+# SET
+
+```{r}
+require(tidyverse) # base
+require(openxlsx) # read.xlsx
+
+path_in <- "X:/Nakup _ NEW/Elektřina/VR_rizeni_odchylky_EE/"
+path_out <- "C:/Users/krizova/Documents/R/playground/"
+
+```
+
+# READ
+
+## energas
+
+- dva formaty datumu, treba sjednotit
+- hlavni promenna = Prediction (MWh), 2 decimals
+
+```{r}
+raw_egas <- data.frame()
+Legas <- list.files(paste0(path_in, "energas/predikce_energas/"), full.names = T)
+
+for(i in Legas){
+  a <- read.csv(i, header = TRUE, sep = ";")
+  raw_egas <- rbind(raw_egas, a)
+  # print(i)
+}
+
+egas <- raw_egas %>% 
+  mutate(g_datum = case_when(
+    grepl("^\\d{4}-\\d{2}-\\d{2}$", Date) ~ as.Date(Date, format = "%Y-%m-%d"),
+    grepl("^\\d{2}\\.\\d{2}\\.\\d{4}", Date) ~ as.Date(Date, format = "%d.%m.%Y %H:%M"),
+    TRUE ~ as.Date(NA))) %>% 
+  arrange(g_datum, Period) %>%
+  mutate(id = seq_along(Prediction)) %>% 
+  select(id, g_datum, "g_period" = Period, "g_pred" = Prediction)
+```
+
+## energodata
+
+- uprava formatu datumu, aby souhlasil s energas
+- hlavni promenna = Predikcia (v MWh)
+
+```{r}
+raw_edat <- data.frame()
+Ledat <- list.files(paste0(path_in, "Energodata/Predikce_energodata/"), full.names = T)
+
+for(i in Ledat){
+  a <- read.xlsx(i)
+  raw_edat <- rbind(raw_edat, a)
+  # print(i)
+}
+
+edat <- raw_edat %>% 
+  mutate(tmstmp = as.Date(Timestamp)) %>% 
+  arrange(tmstmp) %>% 
+  group_by(tmstmp) %>% 
+  mutate(d_period = seq_along(Predikcia)) %>% 
+  ungroup() %>% 
+  mutate(id = seq_along(Predikcia),
+         d_datum = as.Date(Timestamp, format = "%Y-%m-%d %H:%M:%S")) %>% 
+  select(id, d_datum, d_period, "d_pred" = Predikcia)
+
+rm(a)
+```
+
+## powerex (+spotreba)
+
+- uprava datumu
+- hlavni promenna = Pozice.MWh (v MWh)
+- obsahuje i spotrebu SPP = Spotřeba.MWh
+
+```{r}
+raw_spp <- read.xlsx(paste0(path_in, "predikce_powerex_spotreba.xlsx"))
+spp <- raw_spp %>% 
+  mutate(p_datum = as.Date(Den, origin = "1899-12-30"),
+         p_period = `čtvrthodina._`) %>% 
+  select(p_datum, p_period, Hod, "p_pred" = Pozice.MWh, "spotreba" = Spotřeba.MWh)
+```
+
+# JOIN
+
+```{r}
+
+j1 <- inner_join(egas %>% select(-id), edat %>% select(-id), by = c("g_datum" = "d_datum", "g_period" = "d_period"), keep = T) %>% 
+  mutate(diff = abs(g_pred-d_pred),
+         weekday = weekdays(g_datum),
+         dayIndex = as.numeric(factor(g_datum)))
+
+join <- inner_join(j1, spp, by = c("g_datum" = "p_datum", "g_period" = "p_period"), keep = T) %>% 
+  mutate(bigID = seq_along(g_datum))
+```
+
+# MAIN DF ************
+
+```{r}
+
+dat <- join %>% 
+  select(
+    "id" = bigID,
+    "datum" = g_datum,
+    "hodina" = Hod,
+    "perioda" = g_period,
+    "energas" = g_pred,
+    "Energodata" = d_pred,
+    "PowereX" = p_pred,
+    spotreba)
+
+```
+
+## hodiny
+
+```{r}
+hod <- dat %>% 
+   group_by(datum, hodina) %>% 
+  mutate(
+    energas_souc = sum(energas),
+    Energodata_souc = sum(Energodata),
+    PowereX_souc = sum(PowereX),
+    spotreba_souc = sum(spotreba),
+  ) %>% 
+  ungroup() %>% 
+  select(datum, energas_souc, Energodata_souc, PowereX_souc, spotreba_souc) %>% 
+  distinct() %>% 
+  mutate(id = seq_along(energas_souc))
+```
+
+
+# GRAPH
+
+```{r}
+require(ggplot2)
+
+g <- ggplot(dat)+
+  geom_line(aes(x = id, y = spotreba, color = "SPP spotreba"))+
+  geom_line(aes(x = id, y = Energodata, color = "Energodata"))+
+  geom_line(aes(x = id, y = energas, color = "energas"))+
+  geom_line(aes(x = id, y = PowereX, colour = "PowereX"))+
+  scale_color_manual(values = c(
+    "SPP spotreba" = "grey40",
+    "Energodata" = "deepskyblue3",
+    "energas" = "darkorange",
+    "PowereX" = "darkgreen"))+
+  labs(x = "", y = "MWh", title = "Predikce spotreby EE", color = "")+
+  scale_x_continuous(breaks = dat$id[seq(1, nrow(dat), by = 96)], labels = dat$datum[seq(1, nrow(dat), by = 96)])+
+  theme_linedraw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "top")
+g
+
+require(plotly)
+library(htmlwidgets)
+
+a <- ggplotly(g)
+saveWidget(a, file=paste0(path_out, "VRodchylkaEE_interaktivni_vse_do20250623.html"))
+```
+
+## hodiny graf
+
+```{r}
+require(ggplot2)
+
+g <- ggplot(hod)+
+  geom_line(aes(x = id, y = spotreba_souc, color = "SPP spotreba"))+
+  geom_line(aes(x = id, y = Energodata_souc, color = "Energodata"))+
+  geom_line(aes(x = id, y = energas_souc, color = "energas"))+
+  geom_line(aes(x = id, y = PowereX_souc, colour = "PowereX"))+
+  scale_color_manual(values = c(
+    "SPP spotreba" = "grey40",
+    "Energodata" = "deepskyblue3",
+    "energas" = "darkorange",
+    "PowereX" = "darkgreen"))+
+  labs(x = "", y = "MWh", title = "Predikce spotreby EE", color = "")+
+  scale_x_continuous(breaks = hod$id[seq(1, nrow(hod), by = 24)], labels = hod$datum[seq(1, nrow(hod), by = 24)])+
+  theme_linedraw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "top")
+g
+
+require(plotly)
+library(htmlwidgets)
+
+a <- ggplotly(g)
+saveWidget(a, file=paste0(path_out, "VRodchylkaEE_interaktivni_vse_hodinove_do20250623.html"))
+```
+
+24.04.2025
+26.04.2025
+28.04.2025
+01.05.2025
+02.05.2025
+03.05.2025
+04.05.2025
+05.05.2025
+06.05.2025
+13.05.2025
+19.05.2025
+21.05.2025
+23.05.2025
+24.05.2025
+25.05.2025
+01.06.2025
+07.06.2025
+08.06.2025
+10.06.2025
+

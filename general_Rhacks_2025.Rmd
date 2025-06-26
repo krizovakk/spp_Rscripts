@@ -1134,32 +1134,158 @@ str_replace_all(prirc, c("\\d+" = "", "\\/" = ""))
 
 # **GGPLOT**
 
-## variables
+## Interesting sources
 
-## lab names
+Various graph styles gallery [https://r-graph-gallery.com/]
 
-## lab scales
+## Basics
 
-## legend name
+### dataframe for plots
+
+Basic R has dataframe "mpg" integrated - could be used too
+
+head(df)
+  id      datum predikce1 predikce2
+1  1 2025-04-12     25.02    24.959
+2  2 2025-04-12     25.08    25.035
+3  3 2025-04-12     25.10    25.048
+4  4 2025-04-12     24.95    24.978
+5  5 2025-04-12     24.76    24.801
+6  6 2025-04-12     24.92    24.831
+
+
+### create basic ggplot
+
+Basics [https://ggplot2.tidyverse.org/reference/index.html]
+- creates blank space for future plot
+```{r}
+ggplot(df)
+```
+
+### styles
+
+geom_point [https://ggplot2.tidyverse.org/reference/geom_point.html]
+geom_line [https://ggplot2.tidyverse.org/reference/geom_path.html]
+geom_col [https://ggplot2.tidyverse.org/reference/geom_bar.html]
+
+### variables
+
+```{r}
+ggplot(df)+
+   geom_line(aes(x = id, y = predikce1))+
+   geom_line(aes(x = id, y = predikce2))
+
+# pro ucely ostatnich kapitol
+g1 <- ggplot(df)+
+   geom_line(aes(x = id, y = predikce1))
+
+g2 <- ggplot(df)+
+   geom_line(aes(x = id, y = predikce1))+
+   geom_line(aes(x = id, y = predikce2))
+```
+
+### lab names
+
+https://ggplot2.tidyverse.org/reference/labs.html
+
+```{r}
+g1 +
+  labs(x = "ID", 
+       y = "Predikce", 
+       tag = "A",
+       title = "Ilustracni graf", 
+       subtitle = "ilustracni podnadpis", 
+       caption = "(based on data from ...)") 
+# colour = "predikce1" creates a legend
+
+g1 +
+  xlab("ID")+
+  ylab("Predikce")+
+  ggtitle("Ilustracni graf", subtitle = "ilustracni podnadpis")
+```
+
+### lab scales
+
+```{r}
+g1 +
+  scale_x_continuous(name="ID", 
+                     limits=c(800, 1500), 
+                     breaks = c(1000,1200,1300),
+                     labels = c("prvni", "druhy", "treti"))
+```
+
+### lab ticks
+
+```{r}
+g1 + 
+  theme(axis.text.x = element_text(face="bold", color="#993333", 
+                           size=14, angle=45))
+g1 + theme_classic()+
+  theme(
+  axis.text.x = element_blank(),
+  axis.text.y = element_blank(),
+  axis.ticks = element_blank())
+```
+
+
+### legend name
 
 labs(fill = "legend name")
 
-## legend position
+### legend position
 
 theme_void(legend.position = c(0.7, 0.2),legend.direction = "horizontal"))
 
-## facet
 
-### facet_grid
+### theme
 
-### facet_wrap
+Caution!
+  theme() rewrites theme_classic()
+  -> theme() as last element ALWAYS
 
-## ggsave
+```{r}
+g1 + 
+  theme_classic() # many others
+```
+
+
+### ggsave
 
 ```{r eval=FALSE}
 ggsave("D:/VURV/R_hacks/results/plot.png", device = "png", width = 10, height = 6, dpi = 300)
 ggsave(paste0(path_out, "plot.png"), device = "png", width = 10, height = 6, dpi = 300)
-ggsave(paste0(path_out, "plot.png"), device = "png", width = 10, height = 6, dpi = 300) # add variable to the name
+ggsave(paste0(path_out, "graf_energas_energodata_predikce_pro", sel_date), device = "jpg", width = 45, height = 9, dpi = 300) # add variable to the name
+```
+
+## Advanced
+
+### trends
+
+- zatim nefunguje -> doladit
+```{r}
+g1 +
+  geom_smooth(formula = predikce1 ~ id, method = "lm")
+
+```
+
+
+### facet
+
+#### facet_grid
+
+#### facet_wrap
+
+## Plotly
+
+https://r-graph-gallery.com/plotly.html
+
+```{r}
+require(plotly)
+library(htmlwidgets) # save the widget
+
+a <- ggplotly(gvse)
+
+saveWidget(a, file=paste0(path_out, "plotly-line-chart.html"))
 ```
 
 
