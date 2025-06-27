@@ -299,6 +299,36 @@ if(file.exists(exi)){
   }
 ```
 
+### save and style 
+
+```{r}
+
+wb <- loadWorkbook(paste0(path_in, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"))
+existing_data <- read.xlsx(wb, sheet = "Sheet1")
+new_row <- df
+start_row <- nrow(existing_data) + 2  # +2 to account for header row
+writeData(wb, sheet = "Sheet1", x = new_row, 
+          startRow = start_row, colNames = FALSE, na.string = "")
+
+# style and save
+style_DD <- createStyle(fgFill = "darkseagreen1")
+style_TTF <- createStyle(fgFill = "powderblue")
+style_THE <- createStyle(fgFill = "palegoldenrod")
+style_VTP <- createStyle(fgFill = "mistyrose2")
+addStyle(wb, sheet = "Sheet1", style = style_DD, cols = 3, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, sheet = "Sheet1", style = style_TTF, cols = 7:9, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, sheet = "Sheet1", style = style_TTF, cols = 21:23, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, sheet = "Sheet1", style = style_THE, cols = 11:13, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, sheet = "Sheet1", style = style_THE, cols = 25:27, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, sheet = "Sheet1", style = style_VTP, cols = 15:17, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, sheet = "Sheet1", style = style_VTP, cols = 29:31, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, "Sheet1", createStyle(textDecoration = "bold"), rows = 1, cols = 1:100, gridExpand = TRUE)
+freezePane(wb, sheet = "Sheet1", firstActiveRow = 2)
+# setColWidths(wb, sheet = "Sheet1", cols = 1:100, widths = "auto") 
+saveWorkbook(wb, paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"), overwrite = T)
+```
+
+
 ## ACCESS
 
 ### connect db and read table

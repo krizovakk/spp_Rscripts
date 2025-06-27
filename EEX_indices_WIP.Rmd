@@ -18,52 +18,48 @@ need to find proper chunk of a source code and copy it to clipboard
 set the delivery date
 after that it is all automatic
 
+# PATH AND SETUP
+
+```{r}
+require(tidyverse)
+require(stringr) # prace s textem
+require(xlsx) # write.xlsx -- missing Jav
+library(writexl)
+
+append_to_excel2 <- function(df, file_path, sheet = 2) {
+  library(openxlsx)
+  
+  if (file.exists(file_path)) {
+    wb <- loadWorkbook(file_path)
+    existing_data <- read.xlsx(file_path, sheet = sheet)
+    next_row <- nrow(existing_data) + 2  # +1 for header, +1 for next row
+  } else {
+    wb <- createWorkbook()
+    addWorksheet(wb, sheetName = ifelse(is.numeric(sheet), "EEX", sheet))
+    next_row <- 1
+  }
+  writeData(wb, sheet = sheet, x = df, startRow = next_row,
+            colNames = (next_row == 1), na.string = "")
+  # setColWidths(wb, sheet = "Sheet1", cols = 1:ncol(df), widths = "auto")
+  freezePane(wb, sheet = "EEX", firstActiveRow = 2)
+  addStyle(wb, "EEX", createStyle(textDecoration = "bold"), rows = 1, cols = 1:100, gridExpand = TRUE)
+  saveWorkbook(wb, file = file_path, overwrite = TRUE)
+}
+
+path_in <- "C:/Users/krizova/Documents/R/playground/eex/"
+```
+
+
 # SET DELIVERY DATE
 
 ```{r}
 # !! set delivery date !!
+del_d <- as.Date(Sys.Date(), format = "%d.%m.%Y")
+pub_d <- as.Date(Sys.Date()-1, format = "%d.%m.%Y")
+weekday = weekdays(pub_d)
 
-date <- as.Date(Sys.Date(), format = "%d.%m.%Y")
-class(date)
-
-date <- as.Date("23.6.2025", format = "%d.%m.%Y") # set if you need to process any other day than today
-
+# date <- as.Date("23.6.2025", format = "%d.%m.%Y") # set if you need to process any other day than today
 # !! set delivery date !!
-```
-
-# EGSI
-
-segment <tbody>
-specifikace: text-align: left
-
-```{r}
-require(tidyverse)
-require(stringr)
-
-# read from clipboard
-text <- readClipboard()
-print(text)
-
-# match indices and prices
-matches <- str_match_all(
-  text,
-  '<td style="text-align: left;">(.*?)</td><td style="text-align: left;">(\\d{1,3}(?:,\\d{3})*)</td>'
-)[[1]]
-
-# create table
-df <- data.frame(
-  index = matches[, 2],
-  value = matches[, 3],
-  stringsAsFactors = FALSE
-) %>% 
-  mutate(value = round(as.numeric(str_replace(value, ",", ".")), 3))
-
-egsi <- df %>% 
-  filter(index %in% c("CZ VTP", "THE", "TTF")) %>% 
-  mutate('Delivery date' = date,
-         Index = "EEX Spot EGSI") %>% 
-  pivot_wider(names_from = index, values_from = value) %>% 
-  relocate(Index, .before = 'Delivery date')
 ```
 
 # EOD
@@ -72,8 +68,6 @@ segment <tbody>
 specifikace: text-align: righ
 
 ```{r}
-require(tidyverse)
-require(stringr)
 
 # read from clipboard
 text <- paste(readClipboard(), collapse = "\n")
@@ -98,18 +92,75 @@ df <- data.frame(
          EOD = as.numeric(str_replace(EOD, ",", "\\."))) %>% 
   select(index, EOD)
 
-eod <- df %>% # tbd
-  filter(index %in% c("CZ VTP Day Ahead", "THE Day Ahead", "TTF Day Ahead")) %>% 
-  mutate('Delivery date' = date,
-         Index = "EEX Spot EOD") %>% 
-  pivot_wider(names_from = index, values_from = EOD) %>% 
-  relocate(Index, .before = 'Delivery date')
+if (weekday == "Friday"){
+  we <- df %>% filter(index %in% c("CZ VTP Weekend", "THE Weekend", "TTF Weekend")) %>% 
+    mutate(market = paste("EOD:", str_extract(index, "CZ VTP|THE|TTF")), 
+           'Delivery date' = del_d,
+           Index = paste0("EEX Spot EOD")) %>% 
+    select(-index, -Index) %>% 
+    pivot_wider(names_from = market, values_from = EOD) 
+    # mutate('Delivery date' = del_d,
+    #        Index = paste0("EEX Spot EOD"))
+  da <- df %>% filter(index %in% c("CZ VTP Day Ahead", "THE Day Ahead", "TTF Day Ahead")) %>% 
+    mutate(market = paste("EOD:", str_extract(index, "CZ VTP|THE|TTF")), 
+           'Delivery date' = pub_d+3,
+           Index = paste0("EEX Spot EOD")) %>% 
+    select(-index, -Index) %>% 
+    pivot_wider(names_from = market, values_from = EOD)
+  eod <- rbind(we, we[rep(1:nrow(we), 1), ], da)
+  eod[2, 'Delivery date'] <- del_d+1
+} else {
+  eod <- df %>% filter(index %in% c("CZ VTP Day Ahead", "THE Day Ahead", "TTF Day Ahead")) %>% 
+    mutate(market =  paste("EOD:", str_extract(index, "CZ VTP|THE|TTF")), 
+           'Delivery date' = del_d,
+           Index = paste0("EEX Spot EOD")) %>% 
+    select(-index, -Index) %>% 
+    pivot_wider(names_from = market, values_from = EOD) 
+}
+
 ```
+
+# EGSI
+
+DAY a WEEKEND jsou v rozdilnych tabulkach -> kopirujeme to, co je relevantni
+
+segment <tbody>
+specifikace: text-align: left
+
+```{r}
+
+# read from clipboard
+text <- readClipboard()
+print(text)
+
+# match indices and prices
+matches <- str_match_all(
+  text,
+  '<td style="text-align: left;">(.*?)</td><td style="text-align: left;">(\\d{1,3}(?:,\\d{3})*)</td>'
+)[[1]]
+
+# create table
+df <- data.frame(
+  market = matches[, 2],
+  value = matches[, 3],
+  stringsAsFactors = FALSE
+) %>% 
+  mutate(value = round(as.numeric(str_replace(value, ",", ".")), 3))
+
+egsi <- df %>% 
+  filter(market %in% c("CZ VTP", "THE", "TTF")) %>% 
+  mutate(e = "",
+         market = paste("EGSI:", market)) %>% 
+  pivot_wider(names_from = market, values_from = value) 
+ 
+```
+
 # FUTURES
 
 ```{r}
 
-df <- data.frame(
+emp <- data.frame(
+  ee = character(),
   date = character(),
   value1 = numeric(),
   value2 = numeric(),
@@ -123,24 +174,55 @@ df <- data.frame(
   stringsAsFactors = FALSE
 )
 
-new_row <- data.frame(
-  # date = as.Date(date, format = "%d.%m.%Y"),
-  date = format(date, "%d.%m.%Y"),
-  value1 = 36.211, # VTP Cal+1
-  value2 = 36.595, # VTP Q+1
-  value3 = 36.327, # VTP M+1
-  value4 = 36.327, # THE Cal+1
-  value5 = 36.327, # THE Q+1
-  value6 = 36.327, # THE M+1
-  value7 = 36.327, # TTF Cal+1
-  value8 = 36.327, # TTF Q+1
-  value9 = 36.327  # TTF M+1
+df <- data.frame(
+  ee = "",
+  `Publication date` = pub_d,
+  value1 = 36.910, # VTP Cal+1
+  value2 = 36.618, # VTP Q+1
+  value3 = 37.346, # VTP M+1
+  value4 = 35.446, # THE Cal+1
+  value5 = 35.629	, # THE Q+1
+  value6 = 36.000, # THE M+1
+  value7 = 34.269, # TTF Cal+1
+  value8 = 34.593, # TTF Q+1
+  value9 = 35.255  # TTF M+1
 )
 
-df <- rbind(df, new_row)
-names(new_row) <- c("Delivery date", "VTP Cal+1", "VTP Q+1", "VTP M+1",
+futu <- rbind(emp, df)
+names(futu) <- c("ee", "Publication date", "CZ VTP Cal+1", "CZ VTP Q+1", "CZ VTP M+1",
                     "THE Cal+1", "THE Q+1", "THE M+1",
                     "TTF Cal+1", "TTF Q+1", "TTF M+1")
 
+```
+
+# CBIND AND EXPORT
+
+```{r}
+eex <- cbind(eod, egsi, futu)
+
+# every other round - append
+wb <- loadWorkbook(paste0(path_in, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"))
+existing_data <- read.xlsx(wb, sheet = "EEX")
+new_row <- eex
+start_row <- nrow(existing_data) + 2  # +2 to account for header row
+writeData(wb, sheet = "EEX", x = new_row, 
+          startRow = start_row, colNames = FALSE, na.string = "")
+
+# style and save
+style_EOD <- createStyle(fgFill = "powderblue")
+style_EGSI <- createStyle(fgFill = "palegoldenrod")
+style_FUTU <- createStyle(fgFill = "mistyrose2")
+
+addStyle(wb, sheet = "EEX", style = style_EOD, cols = 2:4, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, sheet = "EEX", style = style_EGSI, cols = 6:8, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, sheet = "EEX", style = style_FUTU, cols = 11:19, rows = 1:1000, gridExpand = TRUE)
+addStyle(wb, "EEX", createStyle(textDecoration = "bold"), rows = 1, cols = 1:100, gridExpand = TRUE)
+freezePane(wb, sheet = "EEX", firstActiveRow = 2)
+saveWorkbook(wb, paste0(path_in, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"), overwrite = T)
+
+
+
+
 
 ```
+
