@@ -22,19 +22,21 @@ require(stringr)
 require(writexl)
 
 # paths
-
 # path_in <- "C:/Users/krizova/Documents/R/ICISHeren/csv_oper/"
 # path_bu <- "C:/Users/krizova/Documents/R/ICISHeren/xlsx_results/d-1_backup/"
 # path_out <- "C:/Users/krizova/Documents/R/ICISHeren/xlsx_results/"
 
-path_in <- "C:/Users/krizova/Documents/R/playground/indexyPlyn/"
-path_out <- "C:/Users/krizova/Documents/R/playground/indexyPlyn/"
+path_in <- "C:/Users/krizova/Documents/R/indexyPlyn/csv_oper/"
+path_bu <- "C:/Users/krizova/Documents/R/indexyPlyn/d-1_backup/"
+path_out <- "C:/Users/krizova/Documents/R/indexyPlyn"
+
+# path_in <- "C:/Users/krizova/Documents/R/playground/indexyPlyn/"
+# path_out <- "C:/Users/krizova/Documents/R/playground/indexyPlyn/"
 
 # set local
 Sys.setlocale("LC_TIME", "C")
 
 # function
-
 append_to_excel <- function(df, file_path, sheet) {
   library(openxlsx)
   wb <- loadWorkbook(file_path)  # Load existing workbook and read data from target sheet
@@ -72,6 +74,11 @@ rm(info)
 ```
 
 ## Read and Process
+
+ttf 35
+the 34
+cz  11
+cons 35
 
 ```{r}
 Ltrh <- c("TTF", "THE", "VTP")
@@ -164,12 +171,17 @@ dawemo <- lines %>%
   select(-publ, -deli) %>% 
   relocate('Publication date', 'Delivery date', .after = `Publication day`)
 
+dawemo$`Publication date` <- as.Date(dawemo$`Publication date`, format = "%d.%m.%Y")
+dawemo$`Delivery date` <- as.Date(dawemo$`Delivery date`, format = "%d.%m.%Y")
+
 rm(lines)
 
 # append
 
-append_to_excel(dawemo, paste0(path_in, "indexyPlyn_20250601.xlsx"), sheet = "ICIS")
+append_to_excel(dawemo, paste0(path_out, "indexyPlyn_20250601.xlsx"), sheet = "ICIS")
 ```
+
+here we get a warning - checked, should be fine. 
 
 ### RESULT 2: COMPLETE ICIS
 
@@ -183,7 +195,7 @@ icis <- cons %>%
   select(-publ, -deli) %>% 
   relocate(`Publication date`, `Delivery date`, .after = `Publication day`)
 
-append_to_excel(icis, paste0(path_in, "indexyPlyn_20250601.xlsx"), sheet = "ICIS komplet")
+append_to_excel(icis, paste0(path_out, "indexyPlyn_20250601.xlsx"), sheet = "ICIS komplet")
 ```
 
 ## Back-up
@@ -195,21 +207,30 @@ append_to_excel(icis, paste0(path_in, "indexyPlyn_20250601.xlsx"), sheet = "ICIS
 # EEX
 
 ```{r}
-del_d <- as.Date(Sys.Date(), format = "%d.%m.%Y")
-pub_d <- as.Date(Sys.Date()-1, format = "%d.%m.%Y")
+# del_d <- as.Date("10.6.2025", format = "%d.%m.%Y")
+# pub_d <- as.Date(del_d-1)
+pub_d <- as.Date("27.6.2025", format = "%d.%m.%Y")
+del_d <- as.Date(pub_d+1)
 weekday = weekdays(pub_d)
+# del_d <- as.Date(Sys.Date(), format = "%d.%m.%Y")
+# pub_d <- as.Date(Sys.Date()-1, format = "%d.%m.%Y")
+# weekday = weekdays(pub_d)
 ```
 
 ## EOD
 
 segment <tbody>
-specifikace: text-align: righ
+specifikace: text-align: right
+
+WEEKEND:
+
+resen automaticky: DA v patek = vikend -> sam se namnozi na tri radky -> treba pak upravit pondeli - vychazi v nedeli, prepsat rucne, nema smysl automatizovat
 
 ```{r}
 
 # read from clipboard
 text <- paste(readClipboard(), collapse = "\n")
-print(text)
+# print(text)
 
 # match indices and prices
 
@@ -231,28 +252,29 @@ odf <- data.frame(
   select(index, EOD)
 
 if (weekday == "Friday"){
-  we <- odf %>% filter(index %in% c("CZ VTP Weekend", "THE Weekend", "TTF Weekend")) %>% 
-    mutate(market = paste("EOD:", str_extract(index, "CZ VTP|THE|TTF")), 
+  we <- odf %>% filter(index %in% c("CZ VTP Weekend", "THE Weekend", "TTF Weekend"))  %>% 
+    mutate(market = paste("EOD:", str_extract(index, "CZ VTP|THE|TTF")),
            'Delivery date' = del_d,
-           Index = paste0("EEX Spot EOD")) %>% 
-    select(-index, -Index) %>% 
-    pivot_wider(names_from = market, values_from = EOD) 
+           Index = paste0("EEX Spot EOD")) %>%
+    select(-index, -Index) %>%
+    pivot_wider(names_from = market, values_from = EOD)
   da <- odf %>% filter(index %in% c("CZ VTP Day Ahead", "THE Day Ahead", "TTF Day Ahead")) %>% 
-    mutate(market = paste("EOD:", str_extract(index, "CZ VTP|THE|TTF")), 
+    mutate(market = paste("EOD:", str_extract(index, "CZ VTP|THE|TTF")),
            'Delivery date' = pub_d+3,
-           Index = paste0("EEX Spot EOD")) %>% 
-    select(-index, -Index) %>% 
+           Index = paste0("EEX Spot EOD")) %>%
+    select(-index, -Index) %>%
     pivot_wider(names_from = market, values_from = EOD)
   eod <- rbind(we, we[rep(1:nrow(we), 1), ], da)
   eod[2, 'Delivery date'] <- del_d+1
 } else {
   eod <- odf %>% filter(index %in% c("CZ VTP Day Ahead", "THE Day Ahead", "TTF Day Ahead")) %>% 
-    mutate(market =  paste("EOD:", str_extract(index, "CZ VTP|THE|TTF")), 
+    mutate(market =  paste("EOD:", str_extract(index, "CZ VTP|THE|TTF")),
            'Delivery date' = del_d,
-           Index = paste0("EEX Spot EOD")) %>% 
-    select(-index, -Index) %>% 
-    pivot_wider(names_from = market, values_from = EOD) 
+           Index = paste0("EEX Spot EOD")) %>%
+    select(-index, -Index) %>%
+    pivot_wider(names_from = market, values_from = EOD)
 }
+
 ```
 
 ## EGSI
@@ -265,7 +287,7 @@ specifikace: text-align: left
 ```{r}
 # read from clipboard
 text <- readClipboard()
-print(text)
+# print(text)
 
 # match indices and prices
 matches <- str_match_all(
@@ -278,6 +300,14 @@ gdf <- data.frame(
   market = matches[, 2],
   value = matches[, 3],
   stringsAsFactors = FALSE
+) %>%
+  mutate(value = round(as.numeric(str_replace_all(value, ",", "")), 3))  # remove commas
+
+
+gdf <- data.frame(
+  market = matches[, 2],
+  value = matches[, 3],
+  stringsAsFactors = FALSE
 ) %>% 
   mutate(value = round(as.numeric(str_replace(value, ",", ".")), 3))
 
@@ -285,9 +315,14 @@ egsi <- gdf %>%
   filter(market %in% c("CZ VTP", "THE", "TTF")) %>% 
   mutate(market = paste("EGSI:", market)) %>% 
   pivot_wider(names_from = market, values_from = value) 
+
+
 ```
 
 # FUTURES
+
+nelze automatizovat (prilis mnoho klikani pro volbe trhu a produktu)
+vyplnuejme jen 99999, nutno prepsat rucne v excelu
 
 ```{r}
 
@@ -307,15 +342,15 @@ emp <- data.frame(
 
 df <- data.frame(
   `Publication date` = pub_d,
-  value1 = 36.910, # VTP Cal+1
-  value2 = 36.618, # VTP Q+1
-  value3 = 37.346, # VTP M+1
-  value4 = 35.446, # THE Cal+1
-  value5 = 35.629	, # THE Q+1
-  value6 = 36.000, # THE M+1
-  value7 = 34.269, # TTF Cal+1
-  value8 = 34.593, # TTF Q+1
-  value9 = 35.255  # TTF M+1
+  value1 = 99.999, # VTP Cal+1
+  value2 = 99.999, # VTP Q+1
+  value3 = 99.999, # VTP M+1
+  value4 = 99.999, # THE Cal+1
+  value5 = 99.999	, # THE Q+1
+  value6 = 99.999, # THE M+1
+  value7 = 99.999, # TTF Cal+1
+  value8 = 99.999, # TTF Q+1
+  value9 = 99.999  # TTF M+1
 )
 
 futu <- rbind(emp, df)
@@ -329,7 +364,7 @@ names(futu) <- c("Publication date", "CZ VTP Cal+1", "CZ VTP Q+1", "CZ VTP M+1",
 
 ```{r}
 eex <- cbind(eod, egsi, futu)
-append_to_excel(eex, paste0(path_in, "indexyPlyn_20250601.xlsx"), sheet = "EEX")
+append_to_excel(eex, paste0(path_out, "indexyPlyn_20250601.xlsx"), sheet = "EEX")
 
 ```
 
@@ -342,19 +377,18 @@ unlink(paste0(path_in, "*"), recursive = FALSE)
 
 # PERSONAL BACKUP COPY =================== uncomment ===========================
 
-file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"),
-          to = path_bu,
-          overwrite = TRUE)
+# file.copy(from = paste0(path_out, "indexyPlyn_20250601.xlsx"),
+#           to = path_bu,
+#           overwrite = TRUE)
 
 # COPY TO NAKUP ========================== uncomment ===========================
 
-file.copy(from = paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"),
-          to = "X:/Nakup _ NEW/Pracovni/sklizene ICIS Heren/ICISHeren_harvestedReports_DA_WE_MA.xlsx",
-          overwrite = TRUE)
+# file.copy(from = paste0(path_out, "indexyPlyn_20250601.xlsx"),
+#           to = "X:/Nakup _ NEW/Indexy_Plyn/indexyPlyn_20250601.xlsx",
+#           overwrite = TRUE)
 
 # CLEAR ENVIRONMENT
 
 rm(list=ls())
-
 ```
 
