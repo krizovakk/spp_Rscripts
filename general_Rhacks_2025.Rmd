@@ -425,6 +425,31 @@ df_split <- split(df, df$level) # creates list
 lapply(names(df_split), function(df) write.csv(df_split[[df]], file=paste0(path_out, "new_folder_abs/", df, ".csv"), row.names = F)) 
 ```
 
+# copy files
+
+```{r}
+Lfiles <- list.files("D:/folder1/folder2/puvodnSlozka/", pattern = paste0("2024.pdf"), full.names = T)
+
+for (i in Lfiles) {
+    file.copy(from = i,
+          to = "D:/folder1/folder2/data/cilovaSlozka")
+}
+```
+
+# cut files
+
+neni primy prikaz na cut&paste
+provadi se pomoci prejmenovani
+
+```{r}
+source_dir <- "D:/folder1/folder2/puvodnSlozka/"
+dest_dir <- "D:/folder1/folder2/data/cilovaSlozka"
+files <- list.files(source_dir, pattern = paste0("2024.pdf"), full.names = TRUE)
+dest_files <- file.path(dest_dir, basename(files))
+file.rename(files, dest_files)
+
+```
+
 ## LISTS
 
 ### create list of files
@@ -495,7 +520,7 @@ v <- as.data.frame(v) %>%
 ```{r LEADING ZEROS}
 require(stringr) # package ::str_pad
 
-new_number = str_pad(number, 6, pad = "0"))
+new_number = str_pad(number, 6, pad = "0")
 ```
 
 mutate = create a new column  

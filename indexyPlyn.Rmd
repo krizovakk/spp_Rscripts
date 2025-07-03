@@ -22,14 +22,11 @@ require(stringr)
 require(writexl)
 
 # paths
-# path_in <- "C:/Users/krizova/Documents/R/ICISHeren/csv_oper/"
-# path_bu <- "C:/Users/krizova/Documents/R/ICISHeren/xlsx_results/d-1_backup/"
-# path_out <- "C:/Users/krizova/Documents/R/ICISHeren/xlsx_results/"
-
 path_in <- "C:/Users/krizova/Documents/R/indexyPlyn/csv_oper/"
 path_bu <- "C:/Users/krizova/Documents/R/indexyPlyn/d-1_backup/"
-path_out <- "C:/Users/krizova/Documents/R/indexyPlyn"
+path_out <- "C:/Users/krizova/Documents/R/indexyPlyn/"
 
+# development
 # path_in <- "C:/Users/krizova/Documents/R/playground/indexyPlyn/"
 # path_out <- "C:/Users/krizova/Documents/R/playground/indexyPlyn/"
 
@@ -138,7 +135,6 @@ cons <- left_join(ttf, the, by = "Indicator") %>%
                   'THE Bid', 'THE Offer', 'THE Mid',
                   'CZ-VTP Bid', 'CZ-VTP Offer', 'CZ-VTP Mid'), as.numeric)) %>% 
    mutate(across(where(is.character), ~ replace(., is.na(.), "")))
-
 ```
 ### RESULT 1: DA, WE, MA
 
@@ -178,7 +174,7 @@ rm(lines)
 
 # append
 
-append_to_excel(dawemo, paste0(path_out, "indexyPlyn_20250601.xlsx"), sheet = "ICIS")
+append_to_excel(dawemo, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "ICIS")
 ```
 
 here we get a warning - checked, should be fine. 
@@ -195,7 +191,7 @@ icis <- cons %>%
   select(-publ, -deli) %>% 
   relocate(`Publication date`, `Delivery date`, .after = `Publication day`)
 
-append_to_excel(icis, paste0(path_out, "indexyPlyn_20250601.xlsx"), sheet = "ICIS komplet")
+append_to_excel(icis, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "ICIS komplet")
 ```
 
 ## Back-up
@@ -209,12 +205,12 @@ append_to_excel(icis, paste0(path_out, "indexyPlyn_20250601.xlsx"), sheet = "ICI
 ```{r}
 # del_d <- as.Date("10.6.2025", format = "%d.%m.%Y")
 # pub_d <- as.Date(del_d-1)
-pub_d <- as.Date("27.6.2025", format = "%d.%m.%Y")
-del_d <- as.Date(pub_d+1)
-weekday = weekdays(pub_d)
-# del_d <- as.Date(Sys.Date(), format = "%d.%m.%Y")
-# pub_d <- as.Date(Sys.Date()-1, format = "%d.%m.%Y")
+# pub_d <- as.Date("1.7.2025", format = "%d.%m.%Y")
+# del_d <- as.Date(pub_d+1)
 # weekday = weekdays(pub_d)
+del_d <- as.Date(Sys.Date(), format = "%d.%m.%Y")
+pub_d <- as.Date(Sys.Date()-1, format = "%d.%m.%Y")
+weekday = weekdays(pub_d)
 ```
 
 ## EOD
@@ -227,7 +223,6 @@ WEEKEND:
 resen automaticky: DA v patek = vikend -> sam se namnozi na tri radky -> treba pak upravit pondeli - vychazi v nedeli, prepsat rucne, nema smysl automatizovat
 
 ```{r}
-
 # read from clipboard
 text <- paste(readClipboard(), collapse = "\n")
 # print(text)
@@ -274,7 +269,6 @@ if (weekday == "Friday"){
     select(-index, -Index) %>%
     pivot_wider(names_from = market, values_from = EOD)
 }
-
 ```
 
 ## EGSI
@@ -303,7 +297,6 @@ gdf <- data.frame(
 ) %>%
   mutate(value = round(as.numeric(str_replace_all(value, ",", "")), 3))  # remove commas
 
-
 gdf <- data.frame(
   market = matches[, 2],
   value = matches[, 3],
@@ -315,17 +308,14 @@ egsi <- gdf %>%
   filter(market %in% c("CZ VTP", "THE", "TTF")) %>% 
   mutate(market = paste("EGSI:", market)) %>% 
   pivot_wider(names_from = market, values_from = value) 
-
-
 ```
 
 # FUTURES
 
-nelze automatizovat (prilis mnoho klikani pro volbe trhu a produktu)
-vyplnuejme jen 99999, nutno prepsat rucne v excelu
+nelze automatizovat (prilis mnoho klikani pro volbu trhu a produktu)
+vyplnuejme jen 99999, nutno prepsat rucne v excelu nebo zde
 
 ```{r}
-
 emp <- data.frame(
   date = character(),
   value1 = numeric(),
@@ -342,30 +332,40 @@ emp <- data.frame(
 
 df <- data.frame(
   `Publication date` = pub_d,
-  value1 = 99.999, # VTP Cal+1
-  value2 = 99.999, # VTP Q+1
-  value3 = 99.999, # VTP M+1
-  value4 = 99.999, # THE Cal+1
-  value5 = 99.999	, # THE Q+1
-  value6 = 99.999, # THE M+1
-  value7 = 99.999, # TTF Cal+1
-  value8 = 99.999, # TTF Q+1
-  value9 = 99.999  # TTF M+1
+  value1 = 36.368, # VTP Cal+1
+  value2 = 37.981, # VTP Q+1
+  value3 = 35.675, # VTP M+1
+  value4 = 34.970, # THE Cal+1
+  value5 = 36.782, # THE Q+1
+  value6 = 34.811, # THE M+1
+  value7 = 33.791, # TTF Cal+1
+  value8 = 35.397, # TTF Q+1
+  value9 = 33.615  # TTF M+1
 )
+# df <- data.frame(
+#   `Publication date` = pub_d,
+#   value1 = 99.999, # VTP Cal+1
+#   value2 = 99.999, # VTP Q+1
+#   value3 = 99.999, # VTP M+1
+#   value4 = 99.999, # THE Cal+1
+#   value5 = 99.999, # THE Q+1
+#   value6 = 99.999, # THE M+1
+#   value7 = 99.999, # TTF Cal+1
+#   value8 = 99.999, # TTF Q+1
+#   value9 = 99.999  # TTF M+1
+# )
 
 futu <- rbind(emp, df)
 names(futu) <- c("Publication date", "CZ VTP Cal+1", "CZ VTP Q+1", "CZ VTP M+1",
                     "THE Cal+1", "THE Q+1", "THE M+1",
                     "TTF Cal+1", "TTF Q+1", "TTF M+1")
-
 ```
 
 # CBIND AND APPEND
 
 ```{r}
 eex <- cbind(eod, egsi, futu)
-append_to_excel(eex, paste0(path_out, "indexyPlyn_20250601.xlsx"), sheet = "EEX")
-
+append_to_excel(eex, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "EEX")
 ```
 
 # F I N A L  SAVE AND BACKUP
@@ -373,18 +373,18 @@ append_to_excel(eex, paste0(path_out, "indexyPlyn_20250601.xlsx"), sheet = "EEX"
 ```{r}
 # DELETE OPER CSV ==============================================================
 
-unlink(paste0(path_in, "*"), recursive = FALSE)
+unlink(paste0(path_in, "*"), recursive = FALSE) # smaze vse !!!
 
 # PERSONAL BACKUP COPY =================== uncomment ===========================
-
-# file.copy(from = paste0(path_out, "indexyPlyn_20250601.xlsx"),
+# 
+# file.copy(from = paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"),
 #           to = path_bu,
 #           overwrite = TRUE)
 
 # COPY TO NAKUP ========================== uncomment ===========================
 
-# file.copy(from = paste0(path_out, "indexyPlyn_20250601.xlsx"),
-#           to = "X:/Nakup _ NEW/Indexy_Plyn/indexyPlyn_20250601.xlsx",
+# file.copy(from = paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"),
+#           to = "X:/Nakup _ NEW/Indexy_Plyn/indexyPlyn_AKTUALNI.xlsx",
 #           overwrite = TRUE)
 
 # CLEAR ENVIRONMENT

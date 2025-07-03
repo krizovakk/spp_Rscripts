@@ -258,4 +258,30 @@ a <- ggplotly(gvse)
 saveWidget(a, file=paste0(path_out, "plotly-line-chart.html"))
 ```
 
+# PRESUN 2024 REPORTU DO SLOZKY
+
+kod funkcni
+na nektere soubory jsem nemela prava - hodilo warning, ale proces pokracoval, tzn. preneslo se, co slo, zbytek zustal v puvodni slozce
+
+```{r}
+# 
+# L2024 <- list.files("X:/ICIS_Heren/", pattern = paste0("2024.pdf"), full.names = T) 
+# 
+# for (i in L2024) {
+#     file.copy(from = i,
+#           to = "X:/ICIS_Heren/backup")
+# } 
+# 
+# source_dir <- "X:/ICIS_Heren/"
+# dest_dir <- "X:/ICIS_Heren/ICIS_2024"
+# files <- list.files(source_dir, pattern = paste0("2024.pdf"), full.names = TRUE)
+# dest_files <- file.path(dest_dir, basename(files))
+# file.rename(files, dest_files)
+# 
+# for (i in L2024) {
+#   dest_dir <- "X:/ICIS_Heren/ICIS_2024"
+#     file.copy(from = i,
+#           to = "X:/ICIS_Heren/backup")
+# } 
+```
 
