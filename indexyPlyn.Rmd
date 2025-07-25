@@ -203,13 +203,15 @@ append_to_excel(icis, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "ICI
 # EEX
 
 ```{r}
-# del_d <- as.Date("10.6.2025", format = "%d.%m.%Y")
-# pub_d <- as.Date(del_d-1)
-# pub_d <- as.Date("1.7.2025", format = "%d.%m.%Y")
+
+# PO
+# pub_d <- as.Date("18.7.2025", format = "%d.%m.%Y") # zadej patek
 # del_d <- as.Date(pub_d+1)
-# weekday = weekdays(pub_d)
+
+# UT-PA
 del_d <- as.Date(Sys.Date(), format = "%d.%m.%Y")
 pub_d <- as.Date(Sys.Date()-1, format = "%d.%m.%Y")
+
 weekday = weekdays(pub_d)
 ```
 
@@ -330,18 +332,7 @@ emp <- data.frame(
   stringsAsFactors = FALSE
 )
 
-df <- data.frame(
-  `Publication date` = pub_d,
-  value1 = 36.368, # VTP Cal+1
-  value2 = 37.981, # VTP Q+1
-  value3 = 35.675, # VTP M+1
-  value4 = 34.970, # THE Cal+1
-  value5 = 36.782, # THE Q+1
-  value6 = 34.811, # THE M+1
-  value7 = 33.791, # TTF Cal+1
-  value8 = 35.397, # TTF Q+1
-  value9 = 33.615  # TTF M+1
-)
+# PO
 # df <- data.frame(
 #   `Publication date` = pub_d,
 #   value1 = 99.999, # VTP Cal+1
@@ -354,6 +345,20 @@ df <- data.frame(
 #   value8 = 99.999, # TTF Q+1
 #   value9 = 99.999  # TTF M+1
 # )
+
+# UT-PA
+df <- data.frame(
+  `Publication date` = pub_d,
+  value1 = 35.580, # VTP Cal+1
+  value2 = 36.374, # VTP Q+1
+  value3 = 34.715, # VTP M+1
+  value4 = 34.306	, # THE Cal+1
+  value5 = 35.322	, # THE Q+1
+  value6 = 33.642, # THE M+1
+  value7 = 33.085, # TTF Cal+1
+  value8 = 34.110, # TTF Q+1
+  value9 = 32.378	  # TTF M+1
+)
 
 futu <- rbind(emp, df)
 names(futu) <- c("Publication date", "CZ VTP Cal+1", "CZ VTP Q+1", "CZ VTP M+1",
@@ -376,13 +381,11 @@ append_to_excel(eex, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "EEX"
 unlink(paste0(path_in, "*"), recursive = FALSE) # smaze vse !!!
 
 # PERSONAL BACKUP COPY =================== uncomment ===========================
-# 
+
 # file.copy(from = paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"),
 #           to = path_bu,
 #           overwrite = TRUE)
-
-# COPY TO NAKUP ========================== uncomment ===========================
-
+# 
 # file.copy(from = paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"),
 #           to = "X:/Nakup _ NEW/Indexy_Plyn/indexyPlyn_AKTUALNI.xlsx",
 #           overwrite = TRUE)

@@ -37,7 +37,7 @@ Legas <- list.files(paste0(path_in, "energas/predikce_energas/"), full.names = T
 for(i in Legas){
   a <- read.csv(i, header = TRUE, sep = ";")
   raw_egas <- rbind(raw_egas, a)
-  # print(i)
+  # print(i) # zapnout jen pri kontrole
 }
 
 egas <- raw_egas %>% 
@@ -62,7 +62,7 @@ Ledat <- list.files(paste0(path_in, "Energodata/Predikce_energodata/"), full.nam
 for(i in Ledat){
   a <- read.xlsx(i)
   raw_edat <- rbind(raw_edat, a)
-  # print(i)
+  # print(i) # zapnout jen pri kontrole
 }
 
 edat <- raw_edat %>% 
@@ -85,27 +85,37 @@ rm(a)
 - obsahuje i spotrebu SPP = Spotřeba.MWh
 
 ```{r}
-raw_spp <- read.xlsx(paste0(path_in, "predikce_powerex_spotreba.xlsx"))
-spp <- raw_spp %>% 
+# raw_spp <- read.xlsx(paste0(path_in, "predikce_powerex_spotreba.xlsx"))
+# spp <- raw_spp %>% 
+#   mutate(p_datum = as.Date(Den, origin = "1899-12-30"),
+#          p_period = `čtvrthodina._`) %>% 
+#   select(p_datum, p_period, Hod, "p_pred_VDT_IDA" = Pozice.incl..VDT_IDA.MWh, "p_pred" = Pozice.DA.MWh, "spotreba" = Spotřeba.MWh)
+
+raw_dm <- read.xlsx(paste0(path_in, "predikce_DM_spotreba.xlsx"))
+spp <- raw_dm %>% 
   mutate(p_datum = as.Date(Den, origin = "1899-12-30"),
          p_period = `čtvrthodina._`) %>% 
-  select(p_datum, p_period, Hod, "p_pred" = Pozice.MWh, "spotreba" = Spotřeba.MWh)
+  select(p_datum, p_period, Hod, "p_pred_VDT_IDA" = Pozice.incl..VDT_IDA.MWh, "p_pred" = Pozice.DA.MWh, "spotreba" = Spotřeba.MWh, "egas_nom" = Energas_nom_DM, "edat_nom" = Energodata_nom_DM) 
+
+# spp_m <- spp
+# spp_m[c(4:8)] <- spp_m[c(4:8)] * 4
+
 ```
 
 # JOIN
 
 ```{r}
 
-j1 <- inner_join(egas %>% select(-id), edat %>% select(-id), by = c("g_datum" = "d_datum", "g_period" = "d_period"), keep = T) %>% 
+j1 <- left_join(egas %>% select(-id), edat %>% select(-id), by = c("g_datum" = "d_datum", "g_period" = "d_period"), keep = T) %>% 
   mutate(diff = abs(g_pred-d_pred),
          weekday = weekdays(g_datum),
          dayIndex = as.numeric(factor(g_datum)))
 
-join <- inner_join(j1, spp, by = c("g_datum" = "p_datum", "g_period" = "p_period"), keep = T) %>% 
+join <- inner_join(j1, spp, by = c("g_datum" = "p_datum", "g_period" = "p_period"), keep = T) %>%
   mutate(bigID = seq_along(g_datum))
 ```
 
-# MAIN DF ************
+# MAIN DF
 
 ```{r}
 
@@ -115,10 +125,18 @@ dat <- join %>%
     "datum" = g_datum,
     "hodina" = Hod,
     "perioda" = g_period,
-    "energas" = g_pred,
-    "Energodata" = d_pred,
+    "raw_energas" = g_pred,
+    "nom_energas" = egas_nom,
+    "raw_Energodata" = d_pred,
+    "nom_Energodata" = edat_nom,
+    "PowereX_incl_VDT_IDA" = p_pred_VDT_IDA,
     "PowereX" = p_pred,
-    spotreba)
+    spotreba) 
+
+mult_dat <- dat
+mult_dat[c(5:11)] <- mult_dat[c(5:11)] * 4
+
+# write.xlsx(x = dat, file = paste0(path_in, "dataAll.xlsx"))
 
 ```
 
@@ -140,8 +158,9 @@ hod <- dat %>%
 ```
 
 
-# GRAPH
+# GGPLOT + PLOTLY
 
+puvodni
 ```{r}
 require(ggplot2)
 
@@ -168,6 +187,287 @@ a <- ggplotly(g)
 saveWidget(a, file=paste0(path_out, "VRodchylkaEE_interaktivni_vse_do20250623.html"))
 ```
 
+pridani raw a nominovaneho mnozstvi
+```{r}
+require(ggplot2)
+
+g <- ggplot(mult_dat)+
+  geom_line(aes(x = id, y = spotreba, color = "SPP spotreba"))+
+  geom_line(aes(x = id, y = raw_Energodata, color = "raw_Energodata"))+
+  geom_line(aes(x = id, y = nom_Energodata, color = "nom_Energodata"))+
+  geom_line(aes(x = id, y = raw_energas, color = "raw_energas"))+
+  geom_line(aes(x = id, y = nom_energas, color = "nom_energas"))+
+  geom_line(aes(x = id, y = PowereX, colour = "PowereX"))+
+  scale_color_manual(values = c(
+    "SPP spotreba" = "grey40",
+    "raw_Energodata" = "deepskyblue3",
+    "nom_Energodata" = "cadetblue3",
+    "raw_energas" = "darkorange",
+    "nom_energas" = "goldenrod2",
+    "PowereX" = "darkgreen"))+
+  labs(x = "", y = "MWh", title = "Predikce spotreby EE", color = "")+
+  scale_x_continuous(breaks = mult_dat$id[seq(1, nrow(mult_dat), by = 96)], 
+                     labels = mult_dat$datum[seq(1, nrow(mult_dat), by = 96)])+
+  theme_linedraw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "top")
+g
+
+require(plotly)
+library(htmlwidgets)
+
+a <- ggplotly(g)
+saveWidget(a, file=paste0(path_out, "VRodchylkaEE_interaktivni_vse_do20250709.html"))
+```
+
+## hlavni odchylka
+
+uprava textu v hover - takto funguje
+```{r}
+require(ggplot2)
+require(plotly)
+library(htmlwidgets)
+
+g <- ggplot(mult_dat)+
+  geom_line(aes(x = id, y = spotreba, color = "SPP spotreba")) +
+  geom_point(aes(x = id, y = spotreba, color = "SPP spotreba",
+                 text = paste("Datum:", datum, "<br>Hodina:", hodina, "<br>Spotřeba:", spotreba)), alpha = 0) +
+  geom_line(aes(x = id, y = raw_Energodata, color = "raw_Energodata")) +
+  geom_point(aes(x = id, y = raw_Energodata, color = "raw_Energodata",
+                 text = paste("Datum:", datum, "<br>Hodina:", hodina, "<br>raw Energodata:", raw_Energodata)), alpha = 0) +
+  
+  geom_line(aes(x = id, y = nom_Energodata, color = "nom_Energodata")) +
+  geom_point(aes(x = id, y = nom_Energodata, color = "nom_Energodata",
+                 text = paste("Datum:", datum, "<br>Hodina:", hodina, "<br>nom Energodata:", nom_Energodata)), alpha = 0) +
+  
+  geom_line(aes(x = id, y = raw_energas, color = "raw_energas")) +
+  geom_point(aes(x = id, y = raw_energas, color = "raw_energas",
+                 text = paste("Datum:", datum, "<br>Hodina:", hodina, "<br>raw energas:", raw_energas)), alpha = 0) +
+  
+  geom_line(aes(x = id, y = nom_energas, color = "nom_energas")) +
+  geom_point(aes(x = id, y = nom_energas, color = "nom_energas",
+                 text = paste("Datum:", datum, "<br>Hodina:", hodina, "<br>nom energas:", nom_energas)), alpha = 0) +
+
+  geom_line(aes(x = id, y = PowereX, color = "PowereX")) +
+  geom_point(aes(x = id, y = PowereX, color = "PowereX",
+                 text = paste("Datum:", datum, "<br>Hodina:", hodina, "<br>PowereX:", PowereX)), alpha = 0) +
+  scale_color_manual(values = c(
+    "SPP spotreba" = "grey40",
+    "raw_Energodata" = "deepskyblue3",
+    "nom_Energodata" = "cadetblue3",
+    "raw_energas" = "darkorange",
+    "nom_energas" = "goldenrod2",
+    "PowereX" = "darkgreen"))+
+  labs(x = "", y = "MWh", title = "Predikce spotreby EE", color = "")+
+  scale_x_continuous(breaks = mult_dat$id[seq(1, nrow(mult_dat), by = 96)], 
+                     labels = mult_dat$datum[seq(1, nrow(mult_dat), by = 96)])+
+  scale_y_continuous(breaks = seq(25, 125, by = 5))+
+  theme_linedraw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "top")
+g
+
+a <- ggplotly(g, tooltip = "text")
+saveWidget(a, file=paste0(path_out, "VRodchylkaEE_interaktivni_vse_do20250712.html"))
+```
+
+https://forum.posit.co/t/controlling-the-background-color-of-outside-margin-area-oma-in-ggplotly-rendered-in-shiny/47388/6
+panel.background = element_rect(fill = "#000000", color = "#000000"),
+              plot.background = element_rect(fill = "#000000", color = "#000000")
+
+## cena odchylky
+
+excel
+  odchylka (geom_line)
+  cena (geom_bar)
+udělat dvakrát pro energas a energodata (facet_grid)
+  p + facet_grid(rows = vars(drv))
+egas a edata treba v long formatu !
+
+```{r}
+
+options(scipen = 999)
+
+raw_edat <- read.xlsx(paste0(path_in, "predikce_DM_spotreba.xlsx"), sheet = "energodata")
+edat <- raw_edat %>% 
+  mutate(d_datum = as.Date(Den, origin = "1899-12-30"),
+         d_period = `čtvrthodina._`) %>% 
+  select(d_datum, Hod, d_period, Energodata_imbalance_MWh, Energodata_imbalacne_costs_EUR)
+
+raw_egas <- read.xlsx(paste0(path_in, "predikce_DM_spotreba.xlsx"), sheet = "energas")
+egas <- raw_egas %>% 
+  mutate(g_datum = as.Date(Den, origin = "1899-12-30"),
+         g_period = `čtvrthodina._`) %>% 
+  select(g_datum, Hod, g_period, Energas_imbalance_MWh, Energas_imbalacne_costs_EUR)
+
+raw_powe <- read.xlsx(paste0(path_in, "predikce_DM_spotreba.xlsx"), sheet = "powerex")
+powe <- raw_powe %>% 
+  mutate(p_datum = as.Date(Den, origin = "1899-12-30"),
+         p_period = `čtvrthodina._`,
+         Powerex_imbalacne_costs_EUR = Powerex_imbalacne_costs_EUR*-1) %>% # Market, forma vypoctu, uprava ceny
+  select(p_datum, Hod, p_period, Powerex_imbalance_MWh, Powerex_imbalacne_costs_EUR)
+
+j1 <- left_join(egas, edat , by = c("g_datum" = "d_datum", "g_period" = "d_period"), keep = T) 
+join <- inner_join(j1, powe, by = c("g_datum" = "p_datum", "g_period" = "p_period"), keep = T) 
+
+dat <- join %>% 
+  select(
+    "datum" = g_datum,
+    "hodina" = Hod,
+    "ctvrthodina" = d_period,
+    "odchylka_energas" = Energas_imbalance_MWh,
+    "naklad_energas" = Energas_imbalacne_costs_EUR,
+    "odchylka_energodata" = Energodata_imbalance_MWh,
+    "naklad_energodata" = Energodata_imbalacne_costs_EUR,
+    "odchylka_powerex" = Powerex_imbalance_MWh,
+    "naklad_powerex" = Powerex_imbalacne_costs_EUR,
+    ) %>% mutate(id = seq_along(naklad_powerex))
+
+```
+
+funkcni
+```{r}
+require(ggplot2)
+require(plotly)
+library(htmlwidgets)
+
+coeff <- 150
+
+d <- ggplot(dat, aes(x = id))+
+
+# energas
+  geom_line(aes(y = odchylka_energas, color = "odchylka_energas"))+
+  geom_point(aes(y = odchylka_energas, color = "odchylka_energas",
+            text = paste("Datum:", datum, "<br>Hodina:", hodina, 
+                         "<br>energas odchylka:", round(odchylka_energas, 3), "MWh")), alpha = 0) +
+ 
+  geom_col(aes(y = naklad_energas/coeff, fill = "naklad_energas"))+
+  geom_point(aes(y = naklad_energas/coeff, fill = "naklad_energas",
+            text = paste("Datum:", datum, "<br>Hodina:", hodina,
+                         "<br>energas náklad:", round(naklad_energas, 2), "EUR")), alpha = 0) +
+# energodata
+  
+  geom_line(aes(y = odchylka_energodata, color = "odchylka_Energodata"))+
+  geom_point(aes(y = odchylka_energodata, color = "odchylka_Energodata",
+            text = paste("Datum:", datum, "<br>Hodina:", hodina, 
+                         "<br>Energodata odchylka:", round(odchylka_energodata, 3), "MWh")), alpha = 0) +
+  
+  geom_col(aes(y = naklad_energodata/coeff, fill = "naklad_Energodata"))+
+  geom_point(aes(y = naklad_energodata/coeff, fill = "naklad_Energodata",
+            text = paste("Datum:", datum, "<br>Hodina:", hodina,
+                         "<br>Energodata náklad:", round(naklad_energodata, 2), "EUR")), alpha = 0) +
+  
+# powerex  
+
+  geom_line(aes(y = odchylka_powerex, color = "odchylka_PowereX"))+
+  geom_point(aes(y = odchylka_powerex, color = "odchylka_PowereX",
+            text = paste("Datum:", datum, "<br>Hodina:", hodina, 
+                         "<br>PowereX odchylka:", round(odchylka_powerex, 3), "MWh")), alpha = 0) +
+  
+  geom_col(aes(y = naklad_powerex/coeff, fill = "naklad_PowereX"))+
+  geom_point(aes(y = naklad_powerex/coeff, fill = "naklad_PowereX",
+            text = paste("Datum:", datum, "<br>Hodina:", hodina,
+                         "<br>PowereX náklad:", round(naklad_powerex, 2), "EUR")), alpha = 0) +
+  
+  scale_color_manual(values = c(
+    "odchylka_energas" = "goldenrod2",
+    "odchylka_Energodata" = "cadetblue3",
+    "odchylka_PowereX" = "darkgreen"))+
+  scale_fill_manual(values = c(
+    "naklad_energas" = "darkorange",
+    "naklad_Energodata" = "deepskyblue3",
+    "naklad_PowereX" = "yellowgreen"))+
+  scale_y_continuous(
+    name = "odchylka [MWh]",
+    sec.axis = sec_axis(~.*coeff, name = "naklad [EUR]"),
+    breaks = seq(-10, 10, by = 1))+
+  scale_x_continuous(breaks =dat$id[seq(1, nrow(dat), by = 96)], 
+                     labels = dat$datum[seq(1, nrow(dat), by = 96)])+
+  labs(x = "", color = "", fill = "")+
+  theme_linedraw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "top")
+
+d
+
+# ad <- ggplotly(d)
+ad <- ggplotly(d, tooltip = "text")
+saveWidget(ad, file=paste0(path_out, "VRodchylkaEE_odchylkaVSnaklad.html"))
+
+
+```
+
+vyvojovy - ted jen naklad, bez second axis
+```{r}
+require(ggplot2)
+require(plotly)
+library(htmlwidgets)
+
+# coeff <- 150
+
+d <- ggplot(dat, aes(x = id))+
+
+# energas
+  
+  # geom_line(aes(y = odchylka_energas, color = "odchylka_energas"))+
+  # geom_point(aes(y = odchylka_energas, color = "odchylka_energas",
+  #           text = paste("Datum:", datum, "<br>Hodina:", hodina, 
+  #                        "<br>energas odchylka:", round(odchylka_energas, 3), "MWh")), alpha = 0) +
+ 
+  geom_col(aes(y = naklad_energas, fill = "naklad_energas"), alpha=0.4)+
+  geom_point(aes(y = naklad_energas, fill = "naklad_energas",
+            text = paste("Datum:", datum, "<br>Hodina:", hodina,
+                         "<br>energas náklad:", round(naklad_energas, 2), "EUR")), alpha = 0) +
+# energodata
+  
+  # geom_line(aes(y = odchylka_energodata, color = "odchylka_Energodata"))+
+  # geom_point(aes(y = odchylka_energodata, color = "odchylka_Energodata",
+  #           text = paste("Datum:", datum, "<br>Hodina:", hodina, 
+  #                        "<br>Energodata odchylka:", round(odchylka_energodata, 3), "MWh")), alpha = 0) +
+  
+  geom_col(aes(y = naklad_energodata, fill = "naklad_Energodata"), alpha=0.4)+
+  geom_point(aes(y = naklad_energodata, fill = "naklad_Energodata",
+            text = paste("Datum:", datum, "<br>Hodina:", hodina,
+                         "<br>Energodata náklad:", round(naklad_energodata, 2), "EUR")), alpha = 0) +
+  
+# powerex  
+
+  # geom_line(aes(y = odchylka_powerex, color = "odchylka_PowereX"))+
+  # geom_point(aes(y = odchylka_powerex, color = "odchylka_PowereX",
+  #           text = paste("Datum:", datum, "<br>Hodina:", hodina, 
+  #                        "<br>PowereX odchylka:", round(odchylka_powerex, 3), "MWh")), alpha = 0) +
+  
+  geom_col(aes(y = naklad_powerex, fill = "naklad_PowereX"), alpha=0.4)+
+  geom_point(aes(y = naklad_powerex, fill = "naklad_PowereX",
+            text = paste("Datum:", datum, "<br>Hodina:", hodina,
+                         "<br>PowereX náklad:", round(naklad_powerex, 2), "EUR")), alpha = 0) +
+  
+  # scale_color_manual(values = c(
+  #   "odchylka_energas" = "goldenrod2",
+  #   "odchylka_Energodata" = "cadetblue3",
+  #   "odchylka_PowereX" = "darkgreen"))+
+  scale_fill_manual(values = c(
+    "naklad_energas" = "darkorange",
+    "naklad_Energodata" = "deepskyblue3",
+    "naklad_PowereX" = "yellowgreen"))+
+  scale_y_continuous(
+    # name = "odchylka [MWh]",
+    name = "náklad [EUR]",
+    # sec.axis = sec_axis(~.*coeff, name = "naklad [EUR]"),
+    breaks = seq(-2000, 2000, by = 20))+
+  scale_x_continuous(breaks =dat$id[seq(1, nrow(dat), by = 96)], 
+                     labels = dat$datum[seq(1, nrow(dat), by = 96)])+
+  labs(x = "", color = "", fill = "")+
+  theme_linedraw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "top")
+
+d
+
+# ad <- ggplotly(d)
+ad <- ggplotly(d, tooltip = "text")
+saveWidget(ad, file=paste0(path_out, "VRodchylkaEE_naklad.html"))
+
+```
+
+
+# ==============================================================================
 ## hodiny graf
 
 ```{r}
@@ -195,6 +495,15 @@ library(htmlwidgets)
 a <- ggplotly(g)
 saveWidget(a, file=paste0(path_out, "VRodchylkaEE_interaktivni_vse_hodinove_do20250623.html"))
 ```
+
+# CHECK
+
+```{r}
+
+c <- edat %>% filter(d_datum == "2025-06-11")
+view(c)
+```
+
 
 24.04.2025
 26.04.2025

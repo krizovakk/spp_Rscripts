@@ -328,7 +328,6 @@ freezePane(wb, sheet = "Sheet1", firstActiveRow = 2)
 saveWorkbook(wb, paste0(path_out, "ICISHeren_harvestedReports_DA_WE_MA.xlsx"), overwrite = T)
 ```
 
-
 ## ACCESS
 
 ### connect db and read table
@@ -363,7 +362,6 @@ dbWriteTable(con, "MyTable", osfo, overwrite = TRUE)
 sapply(osfo, function(x) max(nchar(as.character(x)), na.rm = TRUE))
 
 ```
-
 
 ## SAMPLE
 
@@ -498,6 +496,14 @@ creates numbers with specified number of digits
 ```{r}
 # df %>% 
 mutate(temp = sprintf("%04d", 1:1427))
+```
+
+### scientific format
+
+scientific format to be avoided using this command at the beginning of the code
+
+```{r}
+options(scipen = 999)
 ```
 
 ### sequence in interval
@@ -673,7 +679,6 @@ sw_rem <- starwars %>%
   mutate(spec_short = str_sub(species,1,nchar(species)-2))
 ```
 
-
 ### seq_along with letters
 
 ```{r}
@@ -731,7 +736,6 @@ egsi <- df %>%
   pivot_wider(names_from = index, values_from = value)
 ```
 
-
 ### replace "" with NA
 
 s pipe jsem zatim cestu nenasla
@@ -772,7 +776,6 @@ sw_split <- split(starwars, starwars$homeworld) # creates list
 
 lapply(names(sw_split), function(df) write.csv(sw_split[[df]], file=paste0(path_out, "new_folder_abs/", df, ".csv"), row.names = F)) 
 ```
-
 
 ### case_when
 
@@ -822,7 +825,6 @@ colnames(kmen) <- paste0("kmen_", colnames(kmen))
 ```{r}
 names(df) <- ifelse(grepl("pat1|pat2|pat3", names(df)), paste0("NEW NAME ", names(df)), names(df))
 ```
-
 
 ### merge two columns with not complete information
 
@@ -1208,7 +1210,6 @@ head(df)
 5  5 2025-04-12     24.76    24.801
 6  6 2025-04-12     24.92    24.831
 
-
 ### create basic ggplot
 
 Basics [https://ggplot2.tidyverse.org/reference/index.html]
@@ -1296,13 +1297,12 @@ theme_void(legend.position = c(0.7, 0.2),legend.direction = "horizontal"))
 
 Caution!
   theme() rewrites theme_classic()
-  -> theme() as last element ALWAYS
+  -> theme() as the last element ALWAYS
 
 ```{r}
 g1 + 
   theme_classic() # many others
 ```
-
 
 ### ggsave
 
@@ -1323,12 +1323,21 @@ g1 +
 
 ```
 
-
 ### facet
+
+https://ggplot2.tidyverse.org/reference/facet_grid.html
 
 #### facet_grid
 
+forms a matrix of panels defined by row and column faceting variables. It is most useful when you have two discrete variables, and all combinations of the variables exist in the data.
+
+```{r}
+
+```
+
 #### facet_wrap
+
+facet_wrap() wraps a 1d sequence of panels into 2d. This is generally a better use of screen space than facet_grid() because most displays are roughly rectangular.
 
 ## Plotly
 
@@ -1342,7 +1351,6 @@ a <- ggplotly(gvse)
 
 saveWidget(a, file=paste0(path_out, "plotly-line-chart.html"))
 ```
-
 
 # **GIS**
 
@@ -1381,7 +1389,6 @@ ggplot() +
   geom_path(aes(long, lat, group=group), data=worldUk, color="black", fill=NA) +
   coord_equal() +
   ggsn::scalebar(worldUk, dist = 100, st.size=3, height=0.01, dd2km = TRUE, model = 'WGS84')
-
 
 # MARKDOWN
 

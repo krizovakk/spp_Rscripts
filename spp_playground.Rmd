@@ -285,3 +285,21 @@ na nektere soubory jsem nemela prava - hodilo warning, ale proces pokracoval, tz
 # } 
 ```
 
+# ZPRACOVANI PDF
+
+```{r}
+
+library(pdftools)
+
+text <- pdf_text("X:/ICIS_Heren/20250703_ICIS Markets - Gas Europe - Netherlands.pdf")
+str1 <- text[1]
+high <- str_extract(text, regex("Highlights.*?\n{5,}", dotall = TRUE))
+lines <- str_split(high, "\n")[[1]]
+clearLines <- str_trim(str_remove(lines, "\""))
+clearLines <- clearLines[clearLines != ""] 
+clearLines <- clearLines[-1]
+
+         
+
+```
+
