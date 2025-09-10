@@ -303,3 +303,106 @@ clearLines <- clearLines[-1]
 
 ```
 
+# KYC Torreol
+
+bylo treba nacist zaheslovany excel, ale heslo prislo driv, nez jsem nasla cestu pres R :-)
+```{r}
+library(readxl)
+df <- read_excel("X:/Nakup _ NEW/04_EFET-FA/Torreol/KYC/250731_KYC questionnaire.xlsx")
+
+```
+
+# DT 60' to 15'
+
+```{r}
+
+require(tidyverse)
+require(xlsx)
+# install.packages("writexl")
+library(writexl)
+
+tab <- read.delim("clipboard")
+
+df <- rbind(tab, tab[rep(1:nrow(tab), 3), ]) %>% 
+  arrange(den, hodina) %>% 
+  group_by(den, hodina) %>% 
+  mutate(ctvrt = seq_along(hodina),
+         ctvrt = case_when(ctvrt == 1 ~ 00,
+                           ctvrt == 2 ~ 15,
+                           ctvrt == 3 ~ 30,
+                           ctvrt == 4 ~ 45),
+         # hodina = str_extract(hodina, "^..")
+         ) %>% 
+  ungroup() %>% 
+  select(den, hodina, ctvrt, cena)
+
+write.table(df, "clipboard", sep = "\t", row.names = FALSE)
+write_xlsx(x = df,                       
+           path = "C:/Users/krizova/Documents/playground/temp.xlsx")
+
+```
+
+# AGC Kryry - predikce
+
+AGC Kryry posilaji predikce ve wide formatu na cely mesic
+Je treba si to rozlozit do long formatu
+TO DO: v excelu si zkopiruj hodnoty do List 1
+        vysledek kodu bude v clipboardu
+
+```{r}
+library(tidyverse)
+library(readxl)
+df <- read_excel("C:/Users/krizova/Documents/playground/AGC_Kryry/nominace_CAL25.xlsx", sheet = "List1")
+
+agc <- df %>% 
+  pivot_longer(
+    cols = -datum, 
+    names_to = "hour",
+    values_to = "value"
+  ) %>% 
+  mutate(hodina = readr::parse_number(hour),
+         MW = value/1000) %>% select(datum, hodina, MW)
+
+write.table(agc, "clipboard", sep = "\t", dec = ",",row.names = FALSE)
+
+```
+
+# FOSFA - predikce
+
+```{r}
+library(tidyverse)
+library(readxl)
+df <- read_excel("C:/Users/krizova/Documents/playground/Fosfa/Fosfa_nominace_zari2025.xlsx", sheet = "Red", col_names = F)
+df <- df[1:30, 2:97]
+
+
+# library(dplyr)
+# library(tidyr)
+
+fosf <- df %>% 
+  mutate(date_col = as.Date("01.09.2025", format = "%d.%m.%Y") + row_number() - 1) %>% 
+  pivot_longer(
+    cols = -date_col,        # all columns except the date column
+    names_to = "variable",   # optional: keep track of which column the value came from
+    values_to = "value"
+  ) %>%
+  select(date_col, value) %>% 
+  mutate(hod = rep(0:23, each = 4, length.out = n()),
+         ctvrt = rep(1:4, length.out = n()),
+         MW = value/1000)
+  
+  
+  pivot_longer(
+    cols = -datum, 
+    names_to = "hour",
+    values_to = "value"
+  ) %>% 
+  mutate(hodina = readr::parse_number(hour),
+         MW = value/1000) %>% select(datum, hodina, MW)
+
+write.table(agc, "clipboard", sep = "\t", dec = ",", row.names = FALSE)
+
+```
+
+
+

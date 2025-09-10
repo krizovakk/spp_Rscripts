@@ -1267,7 +1267,17 @@ g1 +
   scale_x_continuous(name="ID", 
                      limits=c(800, 1500), 
                      breaks = c(1000,1200,1300),
-                     labels = c("prvni", "druhy", "treti"))
+                     labels = c("prvni", "druhy", "treti"))+
+  scale_y_continuous(
+    limits = c(30, 40),
+    breaks = seq(30, 40, by = 0.5),
+    labels = function(x) paste0(x, " €"))+
+  scale_x_date(
+    limits = c(Sys.Date() %m-% months(3), Sys.Date()), # for last three months (lubridate)
+    breaks = "1 week", # 2 days works also fine
+    date_labels = "%d-%b",
+    minor_breaks = NULL,
+    expand = c(0, 1)) # no prolongation of x axis
 ```
 
 ### lab ticks
@@ -1475,3 +1485,16 @@ for(i in Lcol){
 
 df <- df %>% select(-smazme) 
 ```
+
+## vypocet 3sigma pro odstraneni outlieru
+
+```{r}
+
+mean_x <- mean(df$values)
+sd_x <- sd(df$values)
+
+# 3-sigma limits
+print(lower_limit <- mean_x - 3 * sd_x)
+print(upper_limit <- mean_x + 3 * sd_x)
+```
+

@@ -170,14 +170,15 @@ dawemo <- lines %>%
 dawemo$`Publication date` <- as.Date(dawemo$`Publication date`, format = "%d.%m.%Y")
 dawemo$`Delivery date` <- as.Date(dawemo$`Delivery date`, format = "%d.%m.%Y")
 
+# vymazat vikend pro MA !
 blank <- c("(m) TTF Bid", "(m) TTF Offer", "(m) TTF Mid", "(m) THE Bid", "(m) THE Offer", "(m) THE Mid", "(m) CZ-VTP Bid","(m) CZ-VTP Offer", "(m) CZ-VTP Mid")
 dawemo[2:3, blank] <- ""
+dawemo[blank] <- sapply(dawemo[blank],as.numeric)
 
-# rm(lines)
+rm(lines)
 
 # append
-
-# append_to_excel(dawemo, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "ICIS")
+append_to_excel(dawemo, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "ICIS")
 ```
 
 here we get a warning - checked, should be fine. 
@@ -208,7 +209,7 @@ append_to_excel(icis, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "ICI
 ```{r}
 
 # PO
-# pub_d <- as.Date("25.7.2025", format = "%d.%m.%Y") # zadej patek
+# pub_d <- as.Date("29.8.2025", format = "%d.%m.%Y") # zadej patek
 # del_d <- as.Date(pub_d+1)
 
 # UT-PA
@@ -352,15 +353,15 @@ emp <- data.frame(
 # UT-PA
 df <- data.frame(
   `Publication date` = pub_d,
-  value1 = 37.345	, # VTP Cal+1
-  value2 = 38.625, # VTP Q+1
-  value3 = 36.704, # VTP M+1
-  value4 = 36.102	, # THE Cal+1
-  value5 = 37.627	, # THE Q+1
-  value6 = 35.679, # THE M+1
-  value7 = 34.850	, # TTF Cal+1
-  value8 = 36.379	, # TTF Q+1
-  value9 = 34.513		  # TTF M+1
+  value1 = 34.112, # VTP Cal+1
+  value2 = 34.570, # VTP Q+1
+  value3 = 33.600	, # VTP M+1
+  value4 = 32.978, # THE Cal+1
+  value5 = 33.591, # THE Q+1
+  value6 = 32.747, # THE M+1
+  value7 = 31.656, # TTF Cal+1
+  value8 = 32.467	, # TTF Q+1
+  value9 = 31.769		  # TTF M+1
 )
 
 futu <- rbind(emp, df)
@@ -395,6 +396,8 @@ unlink(paste0(path_in, "*"), recursive = FALSE) # smaze vse !!!
 
 # CLEAR ENVIRONMENT
 
-rm(list=ls())
+# rm(list=ls())
 ```
+# PLOTS
 
+## 

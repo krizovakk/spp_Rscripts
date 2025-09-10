@@ -12,14 +12,21 @@ output:
   geometry: margin=1in
 ---
 
-# PATHS AND SETUP
+# ICIS HEREN - all in one
 
 ```{r}
+
+
+# ------------------------------------- packages, paths, setup
+
+
 # packages
 require(tidyverse)
 require(openxlsx)
 require(stringr)
 require(writexl)
+require(readxl)
+
 
 # paths
 path_in <- "C:/Users/krizova/Documents/R/indexyPlyn/csv_oper/"
@@ -49,13 +56,11 @@ append_to_excel <- function(df, file_path, sheet) {
   )
   saveWorkbook(wb, file = file_path, overwrite = TRUE)  # Save workbook
 }
-```
 
-# ICIS Heren
 
-## Copy
+# ------------------------------------- copy files from X to csv_oper
 
-```{r}
+
 Ltrh <- c("TTF", "THE", "VTP") 
 for (i in Ltrh) {
   files <- list.files("X:/ICIS_Heren/", pattern = paste0(i, ".csv"), full.names = T) 
@@ -68,16 +73,11 @@ for (i in Ltrh) {
 } 
 
 rm(info)
-```
 
-## Read and Process
 
-ttf 35
-the 34
-cz  11
-cons 35
+# ------------------------------------- read reports and process
 
-```{r}
+
 Ltrh <- c("TTF", "THE", "VTP")
 for (i in Ltrh) {
   files <- list.files(path_in, pattern = paste0(i, ".csv"), full.names = T) 
@@ -135,10 +135,11 @@ cons <- left_join(ttf, the, by = "Indicator") %>%
                   'THE Bid', 'THE Offer', 'THE Mid',
                   'CZ-VTP Bid', 'CZ-VTP Offer', 'CZ-VTP Mid'), as.numeric)) %>% 
    mutate(across(where(is.character), ~ replace(., is.na(.), "")))
-```
-### RESULT 1: DA, WE, MA
 
-```{r}
+
+# ------------------------------------- result 1: DA, WE, MA
+
+
 da <- cons %>% 
   filter(ifelse(`Publication day` == "pa", Indicator %in% c("Natural Gas Weekend+0", "Natural Gas Day-ahead"), Indicator == "Natural Gas Day-ahead")) %>% 
   filter(str_detect(Indicator, "^Natural"))
@@ -170,18 +171,20 @@ dawemo <- lines %>%
 dawemo$`Publication date` <- as.Date(dawemo$`Publication date`, format = "%d.%m.%Y")
 dawemo$`Delivery date` <- as.Date(dawemo$`Delivery date`, format = "%d.%m.%Y")
 
+# vymazat vikend pro MA !
+blank <- c("(m) TTF Bid", "(m) TTF Offer", "(m) TTF Mid", "(m) THE Bid", "(m) THE Offer", "(m) THE Mid", "(m) CZ-VTP Bid","(m) CZ-VTP Offer", "(m) CZ-VTP Mid")
+dawemo[2:3, blank] <- ""
+dawemo[blank] <- sapply(dawemo[blank],as.numeric)
+
 rm(lines)
 
 # append
-
 append_to_excel(dawemo, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "ICIS")
-```
 
-here we get a warning - checked, should be fine. 
 
-### RESULT 2: COMPLETE ICIS
+# ------------------------------------- result 2: full ICIS report
 
-```{r}
+
 icis <- cons %>% 
  mutate(`THE/TTF` = `THE Mid`-`TTF Mid`,
          `CZ-VTP/TTF` = `CZ-VTP Mid`-`TTF Mid`,
@@ -194,18 +197,12 @@ icis <- cons %>%
 append_to_excel(icis, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "ICIS komplet")
 ```
 
-## Back-up
-
--- optional
--- execute when satisfied with the result
--- creates back-up copy for the day
-
 # EEX
 
 ```{r}
 
 # PO
-# pub_d <- as.Date("18.7.2025", format = "%d.%m.%Y") # zadej patek
+# pub_d <- as.Date("5.9.2025", format = "%d.%m.%Y") # zadej patek
 # del_d <- as.Date(pub_d+1)
 
 # UT-PA
@@ -215,14 +212,7 @@ pub_d <- as.Date(Sys.Date()-1, format = "%d.%m.%Y")
 weekday = weekdays(pub_d)
 ```
 
-## EOD
-
-segment <tbody>
-specifikace: text-align: right
-
-WEEKEND:
-
-resen automaticky: DA v patek = vikend -> sam se namnozi na tri radky -> treba pak upravit pondeli - vychazi v nedeli, prepsat rucne, nema smysl automatizovat
+## eod
 
 ```{r}
 # read from clipboard
@@ -273,12 +263,7 @@ if (weekday == "Friday"){
 }
 ```
 
-## EGSI
-
-DAY a WEEKEND jsou v rozdilnych tabulkach -> kopirujeme to, co je relevantni
-
-segment <tbody>
-specifikace: text-align: left
+## egsi
 
 ```{r}
 # read from clipboard
@@ -312,10 +297,7 @@ egsi <- gdf %>%
   pivot_wider(names_from = market, values_from = value) 
 ```
 
-# FUTURES
-
-nelze automatizovat (prilis mnoho klikani pro volbu trhu a produktu)
-vyplnuejme jen 99999, nutno prepsat rucne v excelu nebo zde
+# futures
 
 ```{r}
 emp <- data.frame(
@@ -349,26 +331,26 @@ emp <- data.frame(
 # UT-PA
 df <- data.frame(
   `Publication date` = pub_d,
-  value1 = 35.580, # VTP Cal+1
-  value2 = 36.374, # VTP Q+1
-  value3 = 34.715, # VTP M+1
-  value4 = 34.306	, # THE Cal+1
-  value5 = 35.322	, # THE Q+1
-  value6 = 33.642, # THE M+1
-  value7 = 33.085, # TTF Cal+1
-  value8 = 34.110, # TTF Q+1
-  value9 = 32.378	  # TTF M+1
+  value1 = 34.663	, # VTP Cal+1
+  value2 = 35.497	, # VTP Q+1
+  value3 = 34.927	, # VTP M+1
+  value4 = 33.645	, # THE Cal+1
+  value5 = 34.489, # THE Q+1
+  value6 = 33.816, # THE M+1
+  value7 = 32.384,	 # TTF Cal+1
+  value8 = 33.470, # TTF Q+1
+  value9 = 32.910			  # TTF M+1
 )
 
 futu <- rbind(emp, df)
 names(futu) <- c("Publication date", "CZ VTP Cal+1", "CZ VTP Q+1", "CZ VTP M+1",
                     "THE Cal+1", "THE Q+1", "THE M+1",
                     "TTF Cal+1", "TTF Q+1", "TTF M+1")
-```
 
-# CBIND AND APPEND
 
-```{r}
+# ------------------------------------- cbind and append
+
+
 eex <- cbind(eod, egsi, futu)
 append_to_excel(eex, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "EEX")
 ```
@@ -395,3 +377,243 @@ unlink(paste0(path_in, "*"), recursive = FALSE) # smaze vse !!!
 rm(list=ls())
 ```
 
+# PLOTS
+
+```{r}
+
+# packages
+require(tidyverse)
+require(openxlsx)
+require(stringr)
+require(writexl)
+require(readxl)
+require(lubridate)
+require(ggplot2)
+
+# paths
+
+path_in <- "C:/Users/krizova/Documents/R/indexyPlyn/csv_oper/"
+path_bu <- "C:/Users/krizova/Documents/R/indexyPlyn/d-1_backup/"
+path_out <- "C:/Users/krizova/Documents/R/indexyPlyn/"
+
+Sys.setlocale("LC_TIME", "C")  # or "en_US.UTF-8" on some systems
+
+```
+
+## ICIS - Mid
+
+```{r}
+
+# data
+
+icis <- read_excel(paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "ICIS")
+
+date <- icis %>%
+  mutate(
+    `Publication date` = case_when(
+      grepl("^[0-9]+$", `Publication date`) ~ as.Date(as.numeric(`Publication date`), origin = "1899-12-30"),
+      TRUE ~ as.Date(`Publication date`, format = "%d.%m.%Y")
+    ),
+    `Delivery date` = case_when(
+      grepl("^[0-9]+$", `Delivery date`) ~ as.Date(as.numeric(`Delivery date`), origin = "1899-12-30"),
+      TRUE ~ as.Date(`Delivery date`, format = "%d.%m.%Y")
+  )) %>% filter(!is.na(Period))
+
+# mid values in long format
+
+mid <- date %>% 
+  select("Date" = `Delivery date`, "TTF" = `(d) TTF Mid`, "THE" = `(d) THE Mid`, "CZ-VTP" = `(d) CZ-VTP Mid`) %>% 
+  pivot_longer(cols = -Date, names_to = "series", values_to = "value") %>% 
+  
+  filter(Date >= (Sys.Date() %m-% months(2))) # -------------------------------- set the time range here
+
+# min and max for each of the markets 
+
+extrema <- mid %>%
+  group_by(series) %>%
+  filter(value == min(value) | value == max(value))
+
+# min and max for the whole dataset to set y scale
+
+y_limits <- mid %>%
+  summarise(min_val = min(value, na.rm = TRUE),
+            max_val = max(value, na.rm = TRUE)) %>%
+  mutate(min_limit = min_val - 1, max_limit = max_val + 1)
+
+# plot
+
+g_mid <- ggplot(mid, aes(x = Date, y = value, color = series)) + 
+  geom_line(linewidth = 1)+
+  geom_point(data = extrema, aes(fill = series), shape = 21, size = 3) +
+   geom_text(
+    data = extrema,
+    aes(label = round(value, 1)), 
+    nudge_y = 0.15, size = 5,
+    show.legend = FALSE) +
+  scale_color_manual(values = c(
+      "TTF" = "gold",
+      "THE" = "olivedrab",
+      "CZ-VTP" = "lightseagreen"))+
+  scale_fill_manual(values = c(
+      "TTF" = "gold",
+      "THE" = "olivedrab",
+      "CZ-VTP" = "lightseagreen"))+
+  labs(x = "", y = "€ / MWh", title = "Natural Gas Prices", colour = "", fill = "") +
+  scale_x_date(
+    breaks = "1 day", # ------------------------------------------------------- muzes upravit
+    date_labels = "%d-%b-%y",
+    minor_breaks = NULL, 
+    expand = c(0, 1))+
+  scale_y_continuous(
+    limits = c(y_limits$min_limit, y_limits$max_limit),
+    breaks = seq(floor(y_limits$min_limit), ceiling(y_limits$max_limit), by = 0.5))+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "top")
+
+require(plotly)
+library(htmlwidgets)
+
+a <- ggplotly(g_mid)
+saveWidget(a, file = "X:/Nakup _ NEW/Indexy_Plyn/grafy_vyvojCen_locationSpready/Mid_TTF_THE_CZVTP_last2months.html")
+
+
+```
+
+## ICIS - Spread
+
+```{r}
+
+df <- read_excel(paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "ICIS komplet") %>%
+  mutate(Date = case_when(
+      grepl("^[0-9]+$", `Delivery date`) ~ as.Date(as.numeric(`Delivery date`), origin = "1899-12-30"),
+      TRUE ~ as.Date(`Delivery date`, format = "%d.%m.%Y")
+  )) %>% filter(!is.na(Date))
+
+# mid values in long format
+
+spr <- df %>% 
+  select(Date, `THE/TTF`, `CZ-VTP/TTF`, `CZ-VTP/THE`) %>% 
+  pivot_longer(cols = -Date, names_to = "series", values_to = "value") %>% 
+  na.omit() %>% 
+  filter(Date >= (Sys.Date() %m-% months(2))) # -------------------------------- set the time range here
+
+# min and max for each of the markets 
+
+extrema <- spr %>%
+  group_by(series) %>%
+  filter(value == min(value) | value == max(value))
+
+# min and max for the whole dataset to set y scale
+
+y_limits <- spr %>%
+  summarise(min_val = min(value, na.rm = TRUE),
+            max_val = max(value, na.rm = TRUE)) %>%
+  mutate(min_limit = min_val - 1, max_limit = max_val + 1)
+
+# plot
+
+g_spr <- ggplot(spr, aes(x = Date, y = value, color = series)) + 
+  geom_line(linewidth = 1)+
+  geom_point(data = extrema, aes(fill = series), shape = 21, size = 3) +
+  geom_text(
+    data = extrema,
+    aes(label = round(value, 1)), 
+    nudge_y = 0.15, size = 5,
+    show.legend = FALSE) +
+  scale_color_manual(values = c(
+      "THE/TTF" = "aquamarine",
+      "CZ-VTP/TTF" = "aquamarine3",
+      "CZ-VTP/THE" = "aquamarine4"))+
+  scale_fill_manual(values = c(
+      "THE/TTF" = "aquamarine",
+      "CZ-VTP/TTF" = "aquamarine3",
+      "CZ-VTP/THE" = "aquamarine4"))+
+  labs(x = "", y = "€ / MWh", title = "Location Spreads", colour = "", fill = "") +
+  scale_x_date(
+    breaks = "1 day", # ------------------------------------------------------- muzes upravit
+    date_labels = "%d-%b-%y",
+    minor_breaks = NULL, 
+    expand = c(0, 1))+
+  scale_y_continuous(
+    limits = c(y_limits$min_limit, y_limits$max_limit),
+    breaks = seq(floor(y_limits$min_limit), ceiling(y_limits$max_limit), by = 0.5))+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "top")
+
+require(plotly)
+library(htmlwidgets)
+
+a <- ggplotly(g_spr)
+saveWidget(a, file = "X:/Nakup _ NEW/Indexy_Plyn/grafy_vyvojCen_locationSpready/LocationSpreads_last2months.html")
+
+```
+
+## EEX 
+
+```{r}
+
+df <- read_excel(paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "EEX") 
+
+  mutate(Date = case_when(
+      grepl("^[0-9]+$", `Delivery date`) ~ as.Date(as.numeric(`Delivery date`), origin = "1899-12-30"),
+      TRUE ~ as.Date(`Delivery date`, format = "%d.%m.%Y")
+  )) %>% filter(!is.na(Date))
+
+# mid values in long format
+
+spr <- df %>% 
+  select(Date, `THE/TTF`, `CZ-VTP/TTF`, `CZ-VTP/THE`) %>% 
+  pivot_longer(cols = -Date, names_to = "series", values_to = "value") %>% 
+  na.omit() %>% 
+  filter(Date >= (Sys.Date() %m-% months(2))) # -------------------------------- set the time range here
+
+# min and max for each of the markets 
+
+extrema <- spr %>%
+  group_by(series) %>%
+  filter(value == min(value) | value == max(value))
+
+# min and max for the whole dataset to set y scale
+
+y_limits <- spr %>%
+  summarise(min_val = min(value, na.rm = TRUE),
+            max_val = max(value, na.rm = TRUE)) %>%
+  mutate(min_limit = min_val - 1, max_limit = max_val + 1)
+
+# plot
+
+g_spr <- ggplot(spr, aes(x = Date, y = value, color = series)) + 
+  geom_line(linewidth = 1)+
+  geom_point(data = extrema, aes(fill = series), shape = 21, size = 3) +
+  geom_text(
+    data = extrema,
+    aes(label = round(value, 1)), 
+    nudge_y = 0.15, size = 5,
+    show.legend = FALSE) +
+  scale_color_manual(values = c(
+      "THE/TTF" = "aquamarine",
+      "CZ-VTP/TTF" = "aquamarine3",
+      "CZ-VTP/THE" = "aquamarine4"))+
+  scale_fill_manual(values = c(
+      "THE/TTF" = "aquamarine",
+      "CZ-VTP/TTF" = "aquamarine3",
+      "CZ-VTP/THE" = "aquamarine4"))+
+  labs(x = "", y = "€ / MWh", title = "Location Spreads", colour = "", fill = "") +
+  scale_x_date(
+    breaks = "1 day", # ------------------------------------------------------- muzes upravit
+    date_labels = "%d-%b-%y",
+    minor_breaks = NULL, 
+    expand = c(0, 1))+
+  scale_y_continuous(
+    limits = c(y_limits$min_limit, y_limits$max_limit),
+    breaks = seq(floor(y_limits$min_limit), ceiling(y_limits$max_limit), by = 0.5))+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "top")
+
+require(plotly)
+library(htmlwidgets)
+
+a <- ggplotly(g_spr)
+saveWidget(a, file = "X:/Nakup _ NEW/Indexy_Plyn/grafy_vyvojCen_locationSpready/LocationSpreads_last2months.html")
+
+```

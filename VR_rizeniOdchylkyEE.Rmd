@@ -273,7 +273,7 @@ https://forum.posit.co/t/controlling-the-background-color-of-outside-margin-area
 panel.background = element_rect(fill = "#000000", color = "#000000"),
               plot.background = element_rect(fill = "#000000", color = "#000000")
 
-## cena odchylky
+# CENA ODCHYLKY
 
 excel
   odchylka (geom_line)
@@ -322,6 +322,39 @@ dat <- join %>%
     ) %>% mutate(id = seq_along(naklad_powerex))
 
 ```
+
+## tri sigma
+
+tri sigma lze pouzit jen pro normalni rozlozeni dat
+zde mame silne extremy -> neprukazne
+zkousela jsem vice moznosti, nejlepe vychazi kvantily
+
+```{r}
+sigm <- dat %>% 
+  select(id, datum, hodina, ctvrthodina, naklad_energas, naklad_energodata, naklad_powerex)
+
+g <- sigm %>% select(naklad_energas) %>% arrange(naklad_energas) %>% na.omit()
+
+# Quantile
+lower_q <- quantile(g$naklad_energas, 0.01)   # bottom 1%
+upper_q <- quantile(g$naklad_energas, 0.99)   # top 1%
+
+# outliers_q <- g$naklad_powerex[g$naklad_powerex < lower_q | g$naklad_powerex > upper_q]
+
+```
+
+energas
+  up 303
+  low -402
+  
+energodata
+  up 314
+  low -442
+  
+powerex
+  up 246
+  low -421
+
 
 funkcni
 ```{r}
