@@ -403,6 +403,336 @@ fosf <- df %>%
 write.table(agc, "clipboard", sep = "\t", dec = ",", row.names = FALSE)
 
 ```
+# PRESVATKOVANI
 
+https://chatgpt.com/c/68d112b2-d0a8-832d-ba95-3c1865d7a1f1
+
+tipy:
+
+ from = as.POSIXct("2025-01-01 00:00:00", tz = "UTC"), # timezone UTC (jak to dela PwX)
+
+
+DONE: 
+
+```{r}
+
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(tsibble)
+
+# 2024 *** OK ***
+
+y24 <- read_excel("C:/Users/krizova/Documents/R/cenove_kalkukacky/Bohemia Sekt_profil 2024_EE - kopie.xlsx", 
+                 col_names = T) %>% 
+  mutate(weekday = wday(date, week_start = 1),
+         month = lubridate::month(timestamp),
+         day = lubridate::day(timestamp),
+         md = paste0(month, "-", day),
+         id = seq_along(date)) %>% 
+  group_by(date) %>% mutate(hour = seq_along(date)) %>% 
+  ungroup() %>% 
+  select(id, md, timestamp, date, weekday, hour, mwh)
+
+# 2025,6,7 *** OK ***
+
+timestamps <- seq(
+  from = as.POSIXct("2025-01-01 00:00:00"),
+  to   = as.POSIXct("2027-12-31 23:59:00"),
+  by   = "hour"
+)
+
+yx <- data.frame(timestamp = timestamps) %>% 
+  mutate(
+    date = lubridate::date(timestamp),
+    weekday = wday(date, week_start = 1),
+    year = lubridate::year(timestamp),
+    month = lubridate::month(timestamp),
+    day = lubridate::day(timestamp),
+    md = paste0(month, "-", day)
+   ) %>% 
+  group_by(date) %>% mutate(hour = seq_along(date)) %>% 
+  ungroup() %>% 
+  mutate(
+         hol = case_when(md %in% c("1-1", 
+                                   "5-1", "5-8", "7-5", "7-6", 
+                                   "9-8", "10-28", "11-17",
+                                   "12-24", "12-25", "12-26") ~ "ph", # public holiday
+                        date %in% c("2025-04-18", "2026-04-03", "2027-03-26") ~ "easter_friday",
+                        date %in% c("2025-04-19", "2026-04-04", "2027-03-27") ~ "easter_saturday",
+                        date %in% c("2025-04-20", "2026-04-05", "2027-03-28") ~ "easter_sunday",
+                        date %in% c("2025-04-21", "2026-04-06", "2027-03-29") ~ "easter_monday",
+                        TRUE ~ "reg"), # regular
+         id = seq_along(date)) %>% 
+  select(id, md, timestamp, date, weekday, hol)
+ 
+check <- yx %>% filter(str_detect(timestamp, "12:00:00$"))
+
+# filter year
+
+y25 <- yx %>% 
+  # filter(year == 2025)
+  filter(str_detect(timestamp, "^2025"))
+
+y26 <- yx %>% 
+  filter(str_detect(timestamp, "^2026"))
+
+y27 <- yx %>% 
+  filter(str_detect(timestamp, "^2027"))
+
+```
+
+WIP: 
+
+```{r}
+
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(tsibble)
+
+# 2024 
+
+diagram <- read_excel("C:/Users/krizova/Documents/R/cenove_kalkukacky/Bohemia Sekt_profil 2024_EE - kopie.xlsx", 
+                 col_names = T) %>% 
+  mutate(weekday = wday(date, week_start = 1),
+         year = lubridate::year(date),
+         month = lubridate::month(date),
+         week = lubridate::week(date),
+         day = lubridate::day(date),
+         md = paste0(month, "-", day),
+         hol = case_when(md %in% c("1-1", 
+                                   "5-1", "5-8", "7-5", "7-6", 
+                                   "9-8", "10-28", "11-17",
+                                   "12-24", "12-25", "12-26") ~ "ph", # public holiday
+                        date == "2024-03-29" ~ "easter_friday",
+                        date == "2024-03-30" ~ "easter_saturday",
+                        date == "2024-03-31" ~ "easter_sunday",
+                        date == "2024-04-01" ~ "easter_monday",
+                        TRUE ~ "reg")) %>% 
+  group_by(date) %>% mutate(hour = seq_along(date)) %>% 
+  ungroup() %>% 
+  select(year, month, week, weekday, day, hour, hol, date, mwh) %>% 
+  filter(hour == 12) # jen operativne pro prehled - pak smazat
+
+val_y1 <- unique(max(diagram$year))+1 # v pripade, ze nebude diagram za jeden kalendarni rok, ale treba prelom (proto max)
+val_y2 <- unique(max(diagram$year))+2
+val_y3 <- unique(max(diagram$year))+3
+
+# 2025
+
+future <- tibble(
+  timestamp = seq(
+    from = as.POSIXct(paste0(y1, "-01-01 00:00:00"), tz = "Europe/Prague"),
+    to   = as.POSIXct(paste0(y1, "-12-31 23:00:00"), tz = "Europe/Prague"),
+    by   = "hour")) %>% 
+  mutate(
+    date = as_date(timestamp),
+    weekday = wday(timestamp, week_start = 1),  # Monday = 1
+    year = lubridate::year(timestamp),
+    month = lubridate::month(timestamp),
+    week = lubridate::week(timestamp),
+    day = lubridate::day(timestamp),
+    md = paste0(month, "-", day),
+    hol = case_when(md %in% c("1-1", 
+                                   "5-1", "5-8", "7-5", "7-6", 
+                                   "9-8", "10-28", "11-17",
+                                   "12-24", "12-25", "12-26") ~ "ph", # public holiday
+                        date %in% c("2025-04-18", "2026-04-03", "2027-03-26") ~ "easter_friday",
+                        date %in% c("2025-04-19", "2026-04-04", "2027-03-27") ~ "easter_saturday",
+                        date %in% c("2025-04-20", "2026-04-05", "2027-03-28") ~ "easter_sunday",
+                        date %in% c("2025-04-21", "2026-04-06", "2027-03-29") ~ "easter_monday",
+                        TRUE ~ "reg")) %>% 
+  group_by(date) %>% mutate(hour = seq_along(date)) %>% 
+  ungroup() %>% 
+  select(year, month, week, weekday, hour, hol, date) %>% 
+  filter(hour == 12) # jen operativne pro prehled - pak smazat
+  
+tr <- y25 %>% left_join(y24 %>% select(week, weekday, day, hour, mwh), by = c("week", "weekday", "hour")) %>% 
+  rename("mwh_wday" = mwh) %>% 
+  left_join(y24 %>% select(month, day, hour, hol, mwh), by = c("month", "day", "hour", "hol")) 
+  mutate(mwh_hol = ifelse(hol == "ph", mwh, NA))
+  
+
+
+
+
+
+
+
+# day_counts <- y25 %>% count(date) # check no of days
+
+first_wd_25 <- wday(min(y25$date), week_start = 1)  # 1 = Monday
+
+easter <- y24 %>% 
+  filter(grepl("^easter.*", y24$hol))
+
+y24_shifted <- y24 %>%
+  mutate(wd = wday(date, week_start = 1)) %>%
+  filter(row_number() >= min(which(wd == first_wd_25))) %>%
+  select(-wd) %>%
+  left_join(y24 %>% filter()) %>% 
+  mutate(id = seq_along(date))
+
+y25_ <- y25 %>%
+  left_join(y24_shifted %>% select(id, mwh), by = "id") %>% #dle weekday
+  # mutate(mwh_na = ifelse(is.na(mwh), ))
+  rename("mwh_wd" = mwh) %>% 
+  left_join(y24 %>% select(id, mwh), by = "id") %>% 
+  rename("mwh_date" = mwh) %>% 
+  left_join(y24 %>% select(hol, mwh) %>% filter(str_detect(hol, "^easter")), by = "hol") %>% 
+  rename("mwh_easter" = mwh) 
+  mutate(mwh_final = ifelse(hol == "reg", mwh_wd, mwh_date))
+
+
+```
+
+experiment KK - wip
+
+```{r}
+
+y24 <- read_excel("C:/Users/krizova/Documents/R/cenove_kalkukacky/Bohemia Sekt_profil 2024_EE - kopie.xlsx", 
+                 col_names = T) %>% 
+  mutate(weekday24 = wday(date, week_start = 1),
+         month = lubridate::month(date),
+         day = lubridate::day(date),
+         md = paste0(month, "-", day),
+         id = seq_along(date),
+         hol = case_when(md %in% c("1-1", 
+                                   "5-1", "5-8", "7-5", "7-6", 
+                                   "9-8", "10-28", "11-17",
+                                   "12-24", "12-25", "12-26") ~ "ph", # public holiday
+                        date == "2024-03-29" ~ "easter_friday",
+                        date == "2024-03-30" ~ "easter_saturday",
+                        date == "2024-03-31" ~ "easter_sunday",
+                        date == "2024-04-01" ~ "easter_monday",
+                        TRUE ~ "reg")) %>% 
+  group_by(date) %>% mutate(hour = seq_along(date)) %>% 
+  ungroup() %>% 
+  select(id, md, hol, mwh, "date24" = date, weekday24, hour)
+
+# y24 <- tibble(
+#   timestamp = seq(
+#     from = as.POSIXct("2024-01-01 00:00:00", tz = "Europe/Prague"),
+#     to   = as.POSIXct("2024-12-31 23:00:00", tz = "Europe/Prague"),
+#     by   = "day")) %>%
+#   mutate(
+#     date24 = as_date(timestamp),
+#     weekday24 = wday(timestamp, week_start = 1),
+#     id = seq_along(date24)) 
+
+y25 <- tibble(
+  timestamp = seq(
+    from = as.POSIXct("2025-01-01 00:00:00", tz = "Europe/Prague"),
+    to   = as.POSIXct("2025-12-31 23:00:00", tz = "Europe/Prague"),
+    by   = "hour")) %>%
+  mutate(
+    date25 = as_date(timestamp),
+    weekday25 = wday(timestamp, week_start = 1),
+    month = lubridate::month(timestamp),
+    day = lubridate::day(timestamp),
+    md = paste0(month, "-", day),
+    hol25 = case_when(md %in% c("1-1", 
+                                   "5-1", "5-8", "7-5", "7-6", 
+                                   "9-8", "10-28", "11-17",
+                                   "12-24", "12-25", "12-26") ~ "ph", # public holiday
+                        date25 %in% c("2025-04-18", "2026-04-03", "2027-03-26") ~ "easter_friday",
+                        date25 %in% c("2025-04-19", "2026-04-04", "2027-03-27") ~ "easter_saturday",
+                        date25 %in% c("2025-04-20", "2026-04-05", "2027-03-28") ~ "easter_sunday",
+                        date25 %in% c("2025-04-21", "2026-04-06", "2027-03-29") ~ "easter_monday",
+                        TRUE ~ "reg"),
+    id = seq_along(date25)+48) 
+
+y26 <- tibble(
+  timestamp = seq(
+    from = as.POSIXct("2026-01-01 00:00:00", tz = "Europe/Prague"),
+    to   = as.POSIXct("2026-12-31 23:00:00", tz = "Europe/Prague"),
+    by   = "hour")) %>%
+  mutate(
+    date26 = as_date(timestamp),
+    weekday26 = wday(timestamp, week_start = 1),
+    id = seq_along(date26)+72) 
+
+mat <- full_join(y24 %>% select(id, mwh, hol, date24, weekday24), 
+                 y25 %>% select(id, hol25, date25, weekday25), by = "id") %>% 
+  full_join(y26 %>% select(id, date26, weekday26), by = "id")
+
+view(mat)
+
+# apply
+
+res25 <- mat %>% 
+  select(mwh, date24, hol25, date25, weekday25) %>%
+  mutate(mwh_temp = case_when(hol25 == "ph" ~ mwh[date24==date25],
+                              TRUE ~ mwh))
+
+```
+
+```{r}
+
+# Data 2024: denní
+dny2024 <- seq(as.Date("2024-01-01"), as.Date("2024-12-31"), by = "day")
+set.seed(123)
+hodnoty2024 <- rnorm(length(dny2024), 10, 2)
+
+# Data 2025: denní
+dny2025 <- seq(as.Date("2025-01-01"), as.Date("2025-12-31"), by = "day")
+
+# Den v týdnu (1 = pondělí, ..., 7 = neděle)
+wday2024 <- as.integer(format(dny2024, "%u"))
+wday2025 <- as.integer(format(dny2025, "%u"))
+
+# Mapování: pro každý den v 2025 najdeme nejbližší datum v 2024 se stejným wday
+prirazeni <- sapply(seq_along(dny2025), function(i) {
+  idx <- which(wday2024 == wday2025[i])
+  # vezmeme datum, které je v roce 2024 "nejblíže"
+  idx[which.min(abs(as.numeric(dny2024[idx]) - as.numeric(dny2025[i])))]
+})
+
+# Hodnoty z 2024 přeneseme na rok 2025
+hodnoty2025 <- hodnoty2024[prirazeni]
+
+# Výsledek
+head(data.frame(dny2025, hodnoty2025), 10)
+a <- data.frame(dny2025, hodnoty2025, wday2025)
+
+
+y24 <- data.frame(dny2024, hodnoty2024, wday2024)
+
+```
+
+# lubridate cheatsheet
+
+```{r}
+
+library(tidyverse)
+library(lubridate)
+
+dt <- as_datetime(1511870400)
+
+ymd_hms(dt)
+ymd_hm(dt) # nefu
+ymd_h(dt) # nefu
+
+dmy_hms(dt) # nefu
+
+now(tzone = "Europe/Prague")
+now(tzone = "UTC")
+
+parse_date_time(dt) # nefu
+
+dst(dt)
+dst(now(tzone = "Europe/Prague"))
+leap_year(dt)
+
+ceiling_date(dt, unit = "week")
+
+i <- interval(ymd("2017-01-01"), 10)
+j <- 4 %--% ymd("2017-12-10") 
+
+
+int_shift(i, days(-2))
+
+```
 
 

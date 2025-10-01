@@ -38,11 +38,21 @@ string = operational string
 
 # **INITIAL STEPS**
 
+## Update R
+
+```{r}
+install.packages("installr")
+library(installr)
+updateR()
+```
+
 ## Packages
 
 ```{r}
 install.packages("tidyverse") # install
 require(tidyverse) # "activate"
+
+update.packages(checkBuilt = TRUE, ask = FALSE) # update all
 ```
 
 ## Set paths
@@ -605,6 +615,23 @@ egas2 <- egas %>%
   ))
 ```
 
+### weekdays
+
+```{r}
+
+mutate(wd = weekdays(date),
+       dt = case_when(wd == "Monday" ~ "po",
+                       wd == "Tuesday" ~ "ut",
+                       wd == "Wednesday" ~ "st",
+                       wd == "Thursday" ~ "ct",
+                       wd == "Friday" ~ "pa",
+                       wd == "Saturday" ~ "so",
+                       wd == "Sunday" ~ "ne"))
+
+
+```
+
+
 ## STRINGS
 
 ### length
@@ -967,7 +994,7 @@ any(grepl("[\r\n]", df))
 ```
 \newpage
 
-# **JOINS**
+lef# **JOINS**
 
 *inner_join* only keeps observations from x that have a matching key in y
 *left_join()* keeps all observations in x.

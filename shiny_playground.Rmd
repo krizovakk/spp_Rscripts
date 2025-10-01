@@ -1,0 +1,170 @@
+---
+title: "Shiny"
+author: "Katerina Krizova"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    number_sections: false
+    fig_caption: true
+  fontsize: 11pt
+  geometry: margin=1in
+---
+
+# Lesson 1
+
+```{r}
+
+# packages
+require(tidyverse)
+require(shiny)
+require(bslib)
+
+# paths
+path_in <- "C:/Users/krizova/Documents/playground/"
+
+runExample("01_hello")      # a histogram
+runExample("02_text")       # tables and data frames
+runExample("03_reactivity") # a reactive expression
+runExample("04_mpg")        # global variables
+runExample("05_sliders")    # slider bars
+runExample("06_tabsets")    # tabbed panels
+runExample("07_widgets")    # help text and submit buttons
+runExample("08_html")       # Shiny app built from HTML
+runExample("09_upload")     # file upload wizard
+runExample("10_download")   # file download wizard
+runExample("11_timer")      # an automated timer
+
+runApp(paste0(path_in, "App-1"))
+
+```
+
+# Lesson 2
+
+```{r}
+
+# Define UI ----
+ui <- page_sidebar(
+  title = "title panel",
+  input_dark_mode(id = "mode"), 
+  sidebar = sidebar("sidebar"),
+  # sidebar = sidebar("sidebar", position = "right"),
+  "main contents")
+
+
+# Define server logic ----
+server <- function(input, output) {}
+
+# Run the app ----
+shinyApp(ui = ui, server = server)
+```
+
+```{r}
+ui <- page_sidebar(
+  title = "První appka pro Markétu",
+  sidebar = sidebar(
+    fileInput("", "Načti ekcel",
+              accept = c(".xls", ".xlsx"))),
+    input_dark_mode(id = "mode")
+)
+
+
+server <- function(input, output) {}
+shinyApp(ui = ui, server = server)
+
+# shinylive::export("app-name", "site") # zatim nefunguje :-)
+
+```
+
+
+# ChatGPT
+
+```{r}
+# Install required packages if needed
+# install.packages(c("shiny", "readxl"))
+
+library(shiny)
+library(readxl)
+
+ui <- fluidPage(
+  
+  titlePanel("Nahraj Ekcel"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      fileInput("file", "Nahraj ekcel",
+                accept = c(".xls", ".xlsx")),
+      uiOutput("col_selector")  # Dropdown for choosing a column
+    ),
+    
+    mainPanel(
+      h3("Calculation Result"),
+      textOutput("result")
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  
+  # Reactive expression to read the uploaded Excel file
+  data <- reactive({
+    req(input$file)  # make sure a file is uploaded
+    read_excel(input$file$datapath)
+  })
+  
+  # Dynamically create column selector after file is uploaded
+  output$col_selector <- renderUI({
+    req(data())
+    selectInput("col", "Choose a numeric column:",
+                choices = names(data()))
+  })
+  
+  # Perform calculation (example: sum of selected column)
+  result_calc <- reactive({
+    req(input$col)
+    col_data <- data()[[input$col]]
+    if (is.numeric(col_data)) {
+      sum(col_data, na.rm = TRUE)
+    } else {
+      NA
+    }
+  })
+  
+  # Display result
+  output$result <- renderText({
+    req(result_calc())
+    paste("Sum of column", input$col, "is:", result_calc())
+  })
+}
+
+# Run the app
+shinyApp(ui = ui, server = server)
+
+```
+
+```{r}
+
+#chatgpt
+
+ui <- fluidPage(
+  titlePanel("Ukázka vnořování"),
+
+  sidebarLayout(
+    sidebarPanel(
+      sliderInput("a", "Vyber A:", 1, 10, 5),
+      sliderInput("b", "Vyber B:", 1, 10, 5)
+    ),
+    mainPanel(
+      tabsetPanel(
+        tabPanel("Výstup 1", textOutput("out1")),
+        tabPanel("Výstup 2", plotOutput("plot"))
+      )
+    )
+  )
+)
+
+server <- function(input, output) {}
+shinyApp(ui = ui, server = server)
+```
+

@@ -202,7 +202,7 @@ append_to_excel(icis, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "ICI
 ```{r}
 
 # PO
-# pub_d <- as.Date("5.9.2025", format = "%d.%m.%Y") # zadej patek
+# pub_d <- as.Date("26.9.2025", format = "%d.%m.%Y") # zadej patek
 # del_d <- as.Date(pub_d+1)
 
 # UT-PA
@@ -331,15 +331,15 @@ emp <- data.frame(
 # UT-PA
 df <- data.frame(
   `Publication date` = pub_d,
-  value1 = 34.663	, # VTP Cal+1
-  value2 = 35.497	, # VTP Q+1
-  value3 = 34.927	, # VTP M+1
-  value4 = 33.645	, # THE Cal+1
-  value5 = 34.489, # THE Q+1
-  value6 = 33.816, # THE M+1
-  value7 = 32.384,	 # TTF Cal+1
-  value8 = 33.470, # TTF Q+1
-  value9 = 32.910			  # TTF M+1
+  value1 = 33.336	, # VTP Cal+1
+  value2 = 33.831	, # VTP Q+1
+  value3 = 33.593, # VTP M+1
+  value4 = 32.408	, # THE Cal+1
+  value5 = 33.026, # THE Q+1
+  value6 = 32.784		, # THE M+1
+  value7 = 31.112, # TTF Cal+1
+  value8 = 32.011, # TTF Q+1
+  value9 = 32.102			 # TTF M+1
 )
 
 futu <- rbind(emp, df)
@@ -364,13 +364,13 @@ unlink(paste0(path_in, "*"), recursive = FALSE) # smaze vse !!!
 
 # PERSONAL BACKUP COPY =================== uncomment ===========================
 
-# file.copy(from = paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"),
-#           to = path_bu,
-#           overwrite = TRUE)
-# 
-# file.copy(from = paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"),
-#           to = "X:/Nakup _ NEW/Indexy_Plyn/indexyPlyn_AKTUALNI.xlsx",
-#           overwrite = TRUE)
+file.copy(from = paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"),
+          to = path_bu,
+          overwrite = TRUE)
+
+file.copy(from = paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"),
+          to = "X:/Nakup _ NEW/Indexy_Plyn/indexyPlyn_AKTUALNI.xlsx",
+          overwrite = TRUE)
 
 # CLEAR ENVIRONMENT
 
@@ -401,6 +401,8 @@ Sys.setlocale("LC_TIME", "C")  # or "en_US.UTF-8" on some systems
 ```
 
 ## ICIS - Mid
+
+- done
 
 ```{r}
 
@@ -458,12 +460,12 @@ g_mid <- ggplot(mid, aes(x = Date, y = value, color = series)) +
       "TTF" = "gold",
       "THE" = "olivedrab",
       "CZ-VTP" = "lightseagreen"))+
-  labs(x = "", y = "€ / MWh", title = "Natural Gas Prices", colour = "", fill = "") +
+  labs(x = "", y = "€ / MWh", title = "Natural Gas Prices - Day-ahead", colour = "", fill = "") +
   scale_x_date(
     breaks = "1 day", # ------------------------------------------------------- muzes upravit
     date_labels = "%d-%b-%y",
     minor_breaks = NULL, 
-    expand = c(0, 1))+
+    expand = c(0.05, 0.05))+
   scale_y_continuous(
     limits = c(y_limits$min_limit, y_limits$max_limit),
     breaks = seq(floor(y_limits$min_limit), ceiling(y_limits$max_limit), by = 0.5))+
@@ -480,6 +482,8 @@ saveWidget(a, file = "X:/Nakup _ NEW/Indexy_Plyn/grafy_vyvojCen_locationSpready/
 ```
 
 ## ICIS - Spread
+
+- adjust x axis for weekdays only
 
 ```{r}
 
@@ -533,7 +537,7 @@ g_spr <- ggplot(spr, aes(x = Date, y = value, color = series)) +
     breaks = "1 day", # ------------------------------------------------------- muzes upravit
     date_labels = "%d-%b-%y",
     minor_breaks = NULL, 
-    expand = c(0, 1))+
+    expand = c(0.05, 0.05))+
   scale_y_continuous(
     limits = c(y_limits$min_limit, y_limits$max_limit),
     breaks = seq(floor(y_limits$min_limit), ceiling(y_limits$max_limit), by = 0.5))+
@@ -546,9 +550,15 @@ library(htmlwidgets)
 a <- ggplotly(g_spr)
 saveWidget(a, file = "X:/Nakup _ NEW/Indexy_Plyn/grafy_vyvojCen_locationSpready/LocationSpreads_last2months.html")
 
+# CLEAR ENVIRONMENT
+
+rm(list=ls())
+
 ```
 
 ## EEX 
+
+- to do
 
 ```{r}
 
