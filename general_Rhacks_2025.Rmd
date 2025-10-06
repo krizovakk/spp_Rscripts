@@ -994,7 +994,7 @@ any(grepl("[\r\n]", df))
 ```
 \newpage
 
-lef# **JOINS**
+# **JOINS**
 
 *inner_join* only keeps observations from x that have a matching key in y
 *left_join()* keeps all observations in x.

@@ -61,16 +61,16 @@ append_to_excel <- function(df, file_path, sheet) {
 # ------------------------------------- copy files from X to csv_oper
 
 
-Ltrh <- c("TTF", "THE", "VTP") 
+Ltrh <- c("TTF", "THE", "VTP")
 for (i in Ltrh) {
-  files <- list.files("X:/ICIS_Heren/", pattern = paste0(i, ".csv"), full.names = T) 
+  files <- list.files("X:/ICIS_Heren/", pattern = paste0(i, ".csv"), full.names = T)
   if (length(files) > 0) {
     info <- file.info(files)
     newest_file <- rownames(info)[which.max(info$mtime)]
     file.copy(from = newest_file,
           to = path_in)
   }
-} 
+}
 
 rm(info)
 
@@ -202,12 +202,12 @@ append_to_excel(icis, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "ICI
 ```{r}
 
 # PO
-# pub_d <- as.Date("26.9.2025", format = "%d.%m.%Y") # zadej patek
-# del_d <- as.Date(pub_d+1)
+pub_d <- as.Date("3.10.2025", format = "%d.%m.%Y") # zadej patek nebo jiny den zpetne
+del_d <- as.Date(pub_d+1)
 
 # UT-PA
-del_d <- as.Date(Sys.Date(), format = "%d.%m.%Y")
-pub_d <- as.Date(Sys.Date()-1, format = "%d.%m.%Y")
+# del_d <- as.Date(Sys.Date(), format = "%d.%m.%Y")
+# pub_d <- as.Date(Sys.Date()-1, format = "%d.%m.%Y")
 
 weekday = weekdays(pub_d)
 ```
@@ -314,32 +314,17 @@ emp <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# PO
-# df <- data.frame(
-#   `Publication date` = pub_d,
-#   value1 = 99.999, # VTP Cal+1
-#   value2 = 99.999, # VTP Q+1
-#   value3 = 99.999, # VTP M+1
-#   value4 = 99.999, # THE Cal+1
-#   value5 = 99.999, # THE Q+1
-#   value6 = 99.999, # THE M+1
-#   value7 = 99.999, # TTF Cal+1
-#   value8 = 99.999, # TTF Q+1
-#   value9 = 99.999  # TTF M+1
-# )
-
-# UT-PA
 df <- data.frame(
   `Publication date` = pub_d,
-  value1 = 33.336	, # VTP Cal+1
-  value2 = 33.831	, # VTP Q+1
-  value3 = 33.593, # VTP M+1
-  value4 = 32.408	, # THE Cal+1
-  value5 = 33.026, # THE Q+1
-  value6 = 32.784		, # THE M+1
-  value7 = 31.112, # TTF Cal+1
-  value8 = 32.011, # TTF Q+1
-  value9 = 32.102			 # TTF M+1
+  value1 = 33.280	, # VTP Cal+1
+  value2 = 33.790,	 # VTP Q+1
+  value3 = 33.099, # VTP M+1
+  value4 = 32.330, # THE Cal+1
+  value5 = 32.999, # THE Q+1
+  value6 = 32.326, # THE M+1
+  value7 = 31.056, # TTF Cal+1
+  value8 = 31.969, # TTF Q+1
+  value9 = 31.440			 # TTF M+1
 )
 
 futu <- rbind(emp, df)
@@ -357,10 +342,15 @@ append_to_excel(eex, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "EEX"
 
 # F I N A L  SAVE AND BACKUP
 
+PO:
+  pro EGSI doplint rucne hodnoty za nedeli
+  vymazat duplicitni radky z Futures
+
+
 ```{r}
 # DELETE OPER CSV ==============================================================
 
-unlink(paste0(path_in, "*"), recursive = FALSE) # smaze vse !!!
+unlink(paste0(path_in, "*"), recursive = FALSE) # smaze vsechny excely v path_in !!!
 
 # PERSONAL BACKUP COPY =================== uncomment ===========================
 
@@ -454,13 +444,17 @@ g_mid <- ggplot(mid, aes(x = Date, y = value, color = series)) +
     show.legend = FALSE) +
   scale_color_manual(values = c(
       "TTF" = "gold",
-      "THE" = "olivedrab",
-      "CZ-VTP" = "lightseagreen"))+
+      "THE" = "indianred3",
+      # "THE" = "olivedrab",
+      "CZ-VTP" = "deepskyblue3"))+
+      # "CZ-VTP" = "lightseagreen"))+
   scale_fill_manual(values = c(
       "TTF" = "gold",
-      "THE" = "olivedrab",
-      "CZ-VTP" = "lightseagreen"))+
-  labs(x = "", y = "€ / MWh", title = "Natural Gas Prices - Day-ahead", colour = "", fill = "") +
+      "THE" = "indianred3",
+      # "THE" = "olivedrab",
+      "CZ-VTP" = "deepskyblue3"))+
+      # "CZ-VTP" = "lightseagreen"))+
+  labs(x = "", y = "€ / MWh", title = "Natural Gas Prices :: Day-Ahead", colour = "", fill = "") +
   scale_x_date(
     breaks = "1 day", # ------------------------------------------------------- muzes upravit
     date_labels = "%d-%b-%y",

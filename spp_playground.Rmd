@@ -54,6 +54,7 @@ path_in <- "X:/Nakup _ NEW/Elektřina/VR_rizeni_odchylky_EE/"
 path_out <- "C:/Users/krizova/Documents/R/playground/"
 
 # ERERGAS ======================================================================
+
 raw_egas <- data.frame()
 Legas <- list.files(paste0(path_in, "energas/predikce_energas/"), full.names = T)
 
@@ -73,6 +74,7 @@ egas <- raw_egas %>%
   mutate(id = seq_along(Prediction))
 
 # ERERGODATA ===================================================================
+
 raw_edat <- data.frame()
 Ledat <- list.files(paste0(path_in, "Energodata/Predikce_energodata/"), full.names = T)
 
@@ -93,6 +95,7 @@ edat <- raw_edat %>%
   ungroup()
 
 # POWEREX + SPP SPOTREBA =======================================================
+
 raw_spp <- read.xlsx(paste0(path_in, "predikce_powerex_spotreba.xlsx"))
 spp <- raw_spp %>% 
   mutate(datum = as.Date(Den, origin = "1899-12-30"),
@@ -287,6 +290,8 @@ na nektere soubory jsem nemela prava - hodilo warning, ale proces pokracoval, tz
 
 # ZPRACOVANI PDF
 
+-- jiz neztreba, zpracovavame csv
+
 ```{r}
 
 library(pdftools)
@@ -305,7 +310,7 @@ clearLines <- clearLines[-1]
 
 # KYC Torreol
 
-bylo treba nacist zaheslovany excel, ale heslo prislo driv, nez jsem nasla cestu pres R :-)
+-- bylo treba nacist zaheslovany excel, ale heslo prislo driv, nez jsem nasla cestu pres R :-)
 ```{r}
 library(readxl)
 df <- read_excel("X:/Nakup _ NEW/04_EFET-FA/Torreol/KYC/250731_KYC questionnaire.xlsx")
@@ -313,6 +318,8 @@ df <- read_excel("X:/Nakup _ NEW/04_EFET-FA/Torreol/KYC/250731_KYC questionnaire
 ```
 
 # DT 60' to 15'
+
+-- prevod DT z hodinovych dat na 15minutu
 
 ```{r}
 
@@ -344,8 +351,9 @@ write_xlsx(x = df,
 
 # AGC Kryry - predikce
 
-AGC Kryry posilaji predikce ve wide formatu na cely mesic
-Je treba si to rozlozit do long formatu
+-- AGC Kryry posilaji predikce ve wide formatu na cely mesic
+-- Je treba si to rozlozit do long formatu
+
 TO DO: v excelu si zkopiruj hodnoty do List 1
         vysledek kodu bude v clipboardu
 
@@ -368,6 +376,8 @@ write.table(agc, "clipboard", sep = "\t", dec = ",",row.names = FALSE)
 ```
 
 # FOSFA - predikce
+
+-- taky wide format ?
 
 ```{r}
 library(tidyverse)
@@ -732,6 +742,52 @@ j <- 4 %--% ymd("2017-12-10")
 
 
 int_shift(i, days(-2))
+
+```
+# MARIUS PEDERSEN diagram
+
+mail Market 2.10.2025
+
+```{r}
+
+require(data.table)
+
+read_excel_allsheets <- function(filename, tibble = FALSE) {
+    # I prefer straight data.frames
+    # but if you like tidyverse tibbles (the default with read_excel)
+    # then just pass tibble = TRUE
+    sheets <- readxl::excel_sheets(filename)
+    x <- lapply(sheets, function(X) readxl::read_excel(filename, sheet = X, col_types = "text"))
+    if(!tibble) x <- lapply(x, as.data.frame)
+    names(x) <- sheets
+    x
+}
+
+mysheets <- read_excel_allsheets("C:/Users/krizova/Documents/playground/marius_pedersen/mp.xlsx") # specifikuj excel file
+
+library(dplyr)
+
+df_2col <- mysheets %>%
+  purrr::imap(~ mutate(.x, source = .y)) %>%
+  purrr::keep(~ ncol(.x) == 3) %>%
+  bind_rows()
+
+df_3col <- mysheets %>%
+  purrr::imap(~ mutate(.x, source = .y)) %>%
+  purrr::keep(~ ncol(.x) == 4) %>%
+  bind_rows() %>% 
+  mutate(
+    od = as.POSIXct(as.numeric(`Datum od`))
+  )
+
+
+
+
+
+
+
+
+
 
 ```
 
