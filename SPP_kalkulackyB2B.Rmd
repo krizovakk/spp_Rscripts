@@ -23,6 +23,7 @@ EE = electricity
 library(tidyverse)
 library(readxl)
 library(lubridate)
+library(zoo)
 
 # ------------------------------------- paths
 
@@ -38,31 +39,67 @@ diagram musi mit dva sloupce:
 
 ```{r}
 
-load <- read_excel(paste0(path, "Bohemia Sekt_profil 2024_EE - kopie.xlsx"), col_names = T)
+load <- read_excel(paste0(path, "Bohemia Sekt_profil 2024_EE - kopie.xlsx"), col_names = T)         # diagram za 2024
+# load <- read_excel(paste0(path, "erbaLachema.xls"), col_names = T)                                  # diagram za 09/24-08-25
 
-diagram <- load %>% 
+
+diagram <-load %>% 
   mutate(
          year = lubridate::year(date),
          month = lubridate::month(date),
          week = lubridate::week(date),
          day = lubridate::day(date),
          weekday = lubridate::wday(date, week_start = 1),
+         # pair = paste0(str_pad(week, 2, pad = "0"), "_", str_pad(weekday, 2, pad = "0"))
          md = paste0(month, "-", day),
-         hol = case_when(md %in% c("1-1", 
-                                   "5-1", "5-8", "7-5", "7-6", 
-                                   "9-8", "10-28", "11-17",
-                                   "12-24", "12-25", "12-26") ~ "ph", # public holiday
-                        date == as.Date("2024-03-29") ~ "easter_friday",
-                        date == as.Date("2024-03-30") ~ "easter_saturday",
-                        date == as.Date("2024-03-31") ~ "easter_sunday",
-                        date == as.Date("2024-04-01") ~ "easter_monday",# -------------------------------------------------------- pridat i ostatni roky
-                        TRUE ~ "reg")) %>% 
-  group_by(date) %>% mutate(hour = seq_along(date)) %>% 
+         hol = case_when(
+                        md == ("1-1") ~ "novy_rok",
+                         md == ("5-1") ~ "svatek_prace",
+                         md == ("5-8") ~ "konec_valky",
+                         md == ("7-5") ~ "cyril_metod",
+                         md == ("7-6") ~ "jan_hus",
+                         md == ("9-28") ~ "sv_vaclav",
+                         md == ("10-28") ~ "vznik_statu",
+                         md == ("11-17") ~ "den_student",
+                         md == ("12-24") ~ "stedry_den",
+                         md == ("12-25") ~ "bozi_hod",
+                         md == ("12-26") ~ "sv_stepan",
+                         as.Date(date) %in% as.Date(c("2024-03-29", "2025-04-18")) ~ "easter_friday",
+                         as.Date(date) %in% as.Date(c("2024-03-30", "2025-04-19")) ~ "easter_saturday",
+                         as.Date(date) %in% as.Date(c("2024-03-31", "2025-04-20")) ~ "easter_sunday",
+                         as.Date(date) %in% as.Date(c("2024-04-01", "2025-04-21")) ~ "easter_monday", # -------------------------------------------------------- pridat i ostatni roky ?
+                        TRUE ~ "reg")
+         ) %>%
+  group_by(date) %>% mutate(hour = seq_along(date)) %>% ungroup() %>% 
+  group_by(hour) %>% 
+  mutate(mwh_reg = case_when(hol != "reg" & weekday %in% c(6:7) ~ mwh,
+                             hol == "reg" ~ mwh, TRUE ~ NA),
+         mwh_pair = ifelse(hol == "reg", mwh, 
+                           zoo::na.locf(mwh_reg, na.rm = FALSE, fromLast = FALSE))) %>% # vyplní nejbližší dostupnou hodnotu v té samé hodině LAE ZATIM NE REG !!
   ungroup() %>% 
-  select(year, month, week, weekday, day, hour, hol, date, mwh) %>% 
-  filter(hour == 12) # -------------------------------------------------------------------------------------------------- jen operativne pro prehled - pak smazat
+  select(hol, date, year, month, week, weekday, hour, mwh, mwh_reg, mwh_pair) %>% 
+  filter(hour == 12)
+  
+ view(diagram)
+  
+  
+  # group_by(hour) %>% mutate(mwh_reg = case_when(hol != "reg" & weekday %in% c(6:7) ~ mwh,
+  #                            hol == "reg" ~ mwh, TRUE ~ NA),
+  #        mwh_pair = ifelse(hol == "reg", mwh, 
+  #                          zoo::na.locf(mwh_reg, na.rm = FALSE, fromLast = TRUE))) %>% # vyplní nejbližší dostupnou hodnotu z reg dne v té samé hodině
+  # ungroup() 
+  # # select(year, month, week, weekday, day, hour, hol, date, mwh, mwh_reg, mwh_pair) 
+  # # filter(hour == 12) # -------------------------------------------------------------------------------------------------- jen operativne pro prehled - pak smazat
 
-view(diagram)
+
+
+# check vvv
+
+# now <- diagram %>% filter(date == as.Date("2024-03-31")) # DST - 23h
+# fu <- future %>% filter(date == as.Date("2025-03-30")) # DST - 23h OK
+# 
+# now <- diagram %>% filter(date == as.Date("2024-10-27")) # DST - 25h
+# fu <- future %>% filter(date == as.Date("2025-10-26")) # DST - 25h OK
 
 # tr <- diagram %>% filter(date == as.Date("2024-03-29"))
   
@@ -105,7 +142,7 @@ future <- tibble(
   group_by(date) %>% mutate(hour = seq_along(date)) %>% 
   ungroup() %>% 
   select(year, month, week, weekday, hour, hol, date) 
-  filter(hour == 12) # -------------------------------------------------------------------------------------------------- jen operativne pro prehled - pak smazat
+  # filter(hour == 12) # -------------------------------------------------------------------------------------------------- jen operativne pro prehled - pak smazat
   
 view(future)
 
@@ -125,16 +162,31 @@ view(future)
 ```{r}
 
 join <- future %>% 
-  full_join(diagram %>% select(week, weekday, day, hour, mwh), by = c("week", "weekday", "hour")) %>% 
-  rename("mwh_wday" = mwh) %>% 
+  full_join(diagram %>% select(week, weekday, day, hour, mwh_pair), by = c("week", "weekday", "hour")) %>% 
+  rename("mwh" = mwh_pair) %>% filter(hour == 12)
+
+view(join)
+
+
+
   mutate(day = lubridate::day(date)) %>% # potrebujeme zachovat datum z future a ne z diagram
-  full_join(diagram %>% select(month, day, hour, hol, mwh), by = c("month", "day", "hour", "hol")) %>% 
+  full_join(diagram %>% select(month, day, hour, hol, mwh_pair), by = c("month", "day", "hour", "hol")) %>% 
   mutate(mwh_hol = ifelse(hol == "ph", mwh, NA),
          mwh_futu = ifelse(hol == "ph", mwh_hol, mwh_wday)) %>% 
   select(hol, date, year, month, day, hour, week, weekday, mwh_futu) %>% 
-  filter(!is.na(date))
+  filter(!is.na(date)) %>% filter(hour == 12)
 
 view(join)
+
+# exp, asi blbost 
+
+join_fl <- join %>% 
+  group_by(week, weekday, hour) %>%
+  ungroup() 
+  mutate(mwh = ifelse(is.na(mwh_futu), mwh_52, mwh_futu)) %>%
+  filter(hour == 12)
+
+join$mwh_futu <- ifelse(is.na(join$mwh_futu), mean(join$mwh_futu[join$weekday]))
 
 ```
 
@@ -149,7 +201,7 @@ to_replace <- c("easter_friday", "easter_saturday", "easter_sunday", "easter_mon
 
 # funkce
 for (lev in to_replace) {
-  join$mwh_futu[join$hol == lev] <- diagram$mwh[diagram$hol == lev]
+  join$mwh[join$hol == lev] <- diagram$mwh_pair[diagram$hol == lev]
 }
 
 rm(lev)
@@ -159,60 +211,58 @@ rm(to_replace)
 
 # --------- experimental section below
 
-, "easter_friday","easter_saturday","easter_sunday","easter_monday"
-
 ```{r}
 
-# install.packages("zoo")
-require(zoo)
-
-load <- read_excel(paste0(path, "Bohemia Sekt_profil 2024_EE - kopie.xlsx"), col_names = T)
-
-diagram <-load %>% 
+diagram <- load %>% 
   mutate(
          year = lubridate::year(date),
          month = lubridate::month(date),
          week = lubridate::week(date),
          day = lubridate::day(date),
          weekday = lubridate::wday(date, week_start = 1),
+         # pair = paste0(str_pad(week, 2, pad = "0"), "_", str_pad(weekday, 2, pad = "0"))
+         md = paste0(month, "-", day),
          hol = case_when(
-                        date == as.Date("2024-01-01") ~ "novy_rok",
-                        date == as.Date("2024-05-01") ~ "svatek_prace",
-                        date == as.Date("2024-05-08") ~ "konec_valky",
-                        date == as.Date("2024-07-05") ~ "cyril_metod",
-                        date == as.Date("2024-07-06") ~ "jan_hus",
-                        date == as.Date("2024-09-28") ~ "sv_vaclav",
-                        date == as.Date("2024-10-28") ~ "vznik_statu",
-                        date == as.Date("2024-11-17") ~ "den_student",
-                        date == as.Date("2024-12-24") ~ "stedry_den",
-                        date == as.Date("2024-12-25") ~ "bozi_hod",
-                        date == as.Date("2024-12-26") ~ "sv_stepan",
-                        date == as.Date("2024-03-29") ~ "easter_friday",
-                        date == as.Date("2024-03-30") ~ "easter_saturday",
-                        date == as.Date("2024-03-31") ~ "easter_sunday",
-                        date == as.Date("2024-04-01") ~ "easter_monday", # -------------------------------------------------------- pridat i ostatni roky
+                        md == ("1-1") ~ "novy_rok",
+                         md == ("5-1") ~ "svatek_prace",
+                         md == ("5-8") ~ "konec_valky",
+                         md == ("7-5") ~ "cyril_metod",
+                         md == ("7-6") ~ "jan_hus",
+                         md == ("9-28") ~ "sv_vaclav",
+                         md == ("10-28") ~ "vznik_statu",
+                         md == ("11-17") ~ "den_student",
+                         md == ("12-24") ~ "stedry_den",
+                         md == ("12-25") ~ "bozi_hod",
+                         md == ("12-26") ~ "sv_stepan",
+                         as.Date(date) %in% as.Date(c("2024-03-29", "2025-04-18")) ~ "easter_friday",
+                         as.Date(date) %in% as.Date(c("2024-03-30", "2025-04-19")) ~ "easter_saturday",
+                         as.Date(date) %in% as.Date(c("2024-03-31", "2025-04-20")) ~ "easter_sunday",
+                         as.Date(date) %in% as.Date(c("2024-04-01", "2025-04-21")) ~ "easter_monday", # -------------------------------------------------------- pridat i ostatni roky ?
                         TRUE ~ "reg"),
-         pair = paste0(str_pad(week, 2, pad = "0"), "_", str_pad(weekday, 2, pad = "0"))) %>%
-  group_by(date) %>% mutate(hour = seq_along(date)) %>% 
-  ungroup() %>% 
-  group_by(hour) %>% 
-  mutate(mwh_reg = case_when(hol != "reg" & weekday %in% c(6:7) ~ mwh,
-                             hol == "reg" ~ mwh, TRUE ~ NA),
-    # vyplní nejbližší dostupnou hodnotu z reg dne v té samé hodině
-    mwh_pair = ifelse(
-      hol == "reg", mwh, 
-      zoo::na.locf(mwh_reg, na.rm = FALSE, fromLast = TRUE)
-    )) %>%
-  ungroup() 
-  # select(year, month, week, weekday, day, hour, hol, date, mwh, mwh_reg, mwh_pair) 
-  filter(hour == 12) # -------------------------------------------------------------------------------------------------- jen operativne pro prehled - pak smazat
-
+         mwh_pair = case_when(hol != "reg" & weekday %in% c(6:7) ~ mwh,
+                             hol == "reg" ~ mwh, TRUE ~ NA)
+         ) %>%
+  group_by(date) %>% mutate(hour = seq_along(date)) %>% ungroup() %>%
+  select(hol, date, year, month, week, weekday, hour, mwh, mwh_pair) %>% 
+  filter(hour == 12)
+  
 view(diagram)
 
-tr <- diagram %>% filter(date == as.Date("2024-03-31")) # DST - 23h
-fu <- future %>% filter(date == as.Date("2025-03-30")) # DST - 23h OK
+# nize funkcni chatGPT sekce, ktera vyplni nejblizsi reg hodnotu - overeno
 
-tr <- diagram %>% filter(date == as.Date("2024-10-27")) # DST - 25h
-fu <- future %>% filter(date == as.Date("2025-10-26")) # DST - 25h OK
-  
+fill_nearest_reg <- function(df) {
+  reg_idx <- which(diagram$hol == "reg" & !is.na(diagram$mwh_pair))  # Get indices where hol == "reg" and mwh_pair is not NA
+    nearest_reg_value <- sapply(seq_len(nrow(diagram)), function(i) { # For each row, find nearest index among reg rows
+    if (!is.na(diagram$mwh_pair[i])) return(diagram$mwh_pair[i])
+    if (length(reg_idx) == 0) return(NA)
+    nearest <- reg_idx[which.min(abs(reg_idx - i))]   # find the index of reg row closest to i
+    return(diagram$mwh_pair[nearest])
+  })
+  diagram$mwh_pair_filled <- nearest_reg_value
+  diagram
+}
+
+df_filled <- fill_nearest_reg(diagram)
+df_filled
+
 ```

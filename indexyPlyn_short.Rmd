@@ -202,7 +202,7 @@ append_to_excel(icis, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "ICI
 ```{r}
 
 # PO
-pub_d <- as.Date("3.10.2025", format = "%d.%m.%Y") # zadej patek nebo jiny den zpetne
+pub_d <- as.Date("10.10.2025", format = "%d.%m.%Y") # zadej patek nebo jiny den zpetne
 del_d <- as.Date(pub_d+1)
 
 # UT-PA
@@ -316,15 +316,15 @@ emp <- data.frame(
 
 df <- data.frame(
   `Publication date` = pub_d,
-  value1 = 33.280	, # VTP Cal+1
-  value2 = 33.790,	 # VTP Q+1
-  value3 = 33.099, # VTP M+1
-  value4 = 32.330, # THE Cal+1
-  value5 = 32.999, # THE Q+1
-  value6 = 32.326, # THE M+1
-  value7 = 31.056, # TTF Cal+1
-  value8 = 31.969, # TTF Q+1
-  value9 = 31.440			 # TTF M+1
+  value1 = 33.726, # VTP Cal+1
+  value2 = 34.343, # VTP Q+1
+  value3 = 33.740, # VTP M+1
+  value4 = 32.637, # THE Cal+1
+  value5 = 33.597, # THE Q+1
+  value6 = 33.144, # THE M+1
+  value7 = 31.363, # TTF Cal+1
+  value8 = 32.509, # TTF Q+1
+  value9 = 32.175	 # TTF M+1
 )
 
 futu <- rbind(emp, df)
@@ -408,13 +408,14 @@ date <- icis %>%
     ),
     `Delivery date` = case_when(
       grepl("^[0-9]+$", `Delivery date`) ~ as.Date(as.numeric(`Delivery date`), origin = "1899-12-30"),
-      TRUE ~ as.Date(`Delivery date`, format = "%d.%m.%Y")
-  )) %>% filter(!is.na(Period))
+      TRUE ~ as.Date(`Delivery date`, format = "%d.%m.%Y")),
+    proj_date = `Delivery date`-1 # projected date
+  ) %>% filter(!is.na(Period))
 
 # mid values in long format
 
 mid <- date %>% 
-  select("Date" = `Delivery date`, "TTF" = `(d) TTF Mid`, "THE" = `(d) THE Mid`, "CZ-VTP" = `(d) CZ-VTP Mid`) %>% 
+  select("Date" = proj_date, "TTF" = `(d) TTF Mid`, "THE" = `(d) THE Mid`, "CZ-VTP" = `(d) CZ-VTP Mid`) %>% 
   pivot_longer(cols = -Date, names_to = "series", values_to = "value") %>% 
   
   filter(Date >= (Sys.Date() %m-% months(2))) # -------------------------------- set the time range here
@@ -425,7 +426,7 @@ extrema <- mid %>%
   group_by(series) %>%
   filter(value == min(value) | value == max(value))
 
-# min and max for the whole dataset to set y scale
+# min and max for the whole dataset to set y scale automatically
 
 y_limits <- mid %>%
   summarise(min_val = min(value, na.rm = TRUE),

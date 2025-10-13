@@ -772,13 +772,21 @@ df_2col <- mysheets %>%
   purrr::keep(~ ncol(.x) == 3) %>%
   bind_rows()
 
+df_2col$`Datum od` <- factor(df_2col$`Datum od`)
+
+ctvrt <- df_2col %>% 
+  group_by(`Datum od`) %>% 
+  summarise(kWh = sum(as.numeric(Výroba)))
+
+library(writexl)
+write_xlsx(x = ctvrt,                       
+           path = "C:/Users/krizova/Documents/playground/marius_pedersen/MP_spotreby15min.xlsx")
+```
+
 df_3col <- mysheets %>%
   purrr::imap(~ mutate(.x, source = .y)) %>%
   purrr::keep(~ ncol(.x) == 4) %>%
-  bind_rows() %>% 
-  mutate(
-    od = as.POSIXct(as.numeric(`Datum od`))
-  )
+  bind_rows()
 
 
 
