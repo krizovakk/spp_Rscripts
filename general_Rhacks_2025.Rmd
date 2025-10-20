@@ -221,6 +221,13 @@ df <- read_excel("D:/VURV/R_hacks/data/4read.xlsx" , sheet = 2, header = TRUE)
 ISSUE: 'Warning: Expecting numeric in E1251 / R1251C5: got '41 (cm)'  
 SOLUTION: df <- read_excel(paste0(path_snd, "muzbe_rozmery_ptaci.xlsx"), sheet = 1, **col_types="text"**)
 
+### read specific excel cell
+
+```{r}
+excel_value <- read_excel(excel_file, sheet = "Output", range = "P22", col_names = FALSE)[[1]]
+```
+
+
 ### read multiple excel sheets
 
 potrebny balik "data.table"
@@ -1152,6 +1159,20 @@ for(i in Lxls) {
   print(i)
   # rm(a)
 }
+```
+
+\newpage
+
+# **FUNCTIONS**
+
+## source script
+
+```{r}
+spust_skript <- function(cesta) {
+  source(cesta)
+}
+
+spust_skript("C:/Users/krizova/Documents/R/_spp_Rscripts/presvatkovani.R")
 ```
 
 \newpage

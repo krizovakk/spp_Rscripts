@@ -22,196 +22,49 @@ EE = electricity
 
 library(tidyverse)
 library(readxl)
-library(lubridate)
+library(writexl)
+library(lubridate) # prace s datumy
 library(zoo)
+library(shiny) # aplikace
+
 
 # ------------------------------------- paths
 
 path <- "C:/Users/krizova/Documents/R/cenove_kalkukacky/"
-
 ```
 
-# LOAD DIAGRAM -- EE
+## vyber komodity
+
+```{r}
+komo <- "EE"
+# komo <- "ZP"
+```
+
+# PRESVATKOVANI
+
+## LOAD DIAGRAM EE -- done pro oba typy diagramu
 
 diagram musi mit dva sloupce:
   1. date ve formatu POSIXct
   2. mwh ve formatu num
+  
+*SAVE:*
+  load = puvodni diagram bez jakychkoliv uprav (--> statistiky?)
+  
+mwh == puvodni hodnota
+mwh_pair == k parovani (reg = reg, sv = nearest reg)
+
+DST:
+now <- diagram %>% filter(date == as.Date("2024-03-31")) # DST - 23h
+fu <- future %>% filter(date == as.Date("2025-03-30")) # DST - 23h OK
+now <- diagram %>% filter(date == as.Date("2024-10-27")) # DST - 25h
+fu <- future %>% filter(date == as.Date("2025-10-26")) # DST - 25h OK
+tr <- diagram %>% filter(date == as.Date("2024-03-29"))
 
 ```{r}
 
 load <- read_excel(paste0(path, "Bohemia Sekt_profil 2024_EE - kopie.xlsx"), col_names = T)         # diagram za 2024
 # load <- read_excel(paste0(path, "erbaLachema.xls"), col_names = T)                                  # diagram za 09/24-08-25
-
-
-diagram <-load %>% 
-  mutate(
-         year = lubridate::year(date),
-         month = lubridate::month(date),
-         week = lubridate::week(date),
-         day = lubridate::day(date),
-         weekday = lubridate::wday(date, week_start = 1),
-         # pair = paste0(str_pad(week, 2, pad = "0"), "_", str_pad(weekday, 2, pad = "0"))
-         md = paste0(month, "-", day),
-         hol = case_when(
-                        md == ("1-1") ~ "novy_rok",
-                         md == ("5-1") ~ "svatek_prace",
-                         md == ("5-8") ~ "konec_valky",
-                         md == ("7-5") ~ "cyril_metod",
-                         md == ("7-6") ~ "jan_hus",
-                         md == ("9-28") ~ "sv_vaclav",
-                         md == ("10-28") ~ "vznik_statu",
-                         md == ("11-17") ~ "den_student",
-                         md == ("12-24") ~ "stedry_den",
-                         md == ("12-25") ~ "bozi_hod",
-                         md == ("12-26") ~ "sv_stepan",
-                         as.Date(date) %in% as.Date(c("2024-03-29", "2025-04-18")) ~ "easter_friday",
-                         as.Date(date) %in% as.Date(c("2024-03-30", "2025-04-19")) ~ "easter_saturday",
-                         as.Date(date) %in% as.Date(c("2024-03-31", "2025-04-20")) ~ "easter_sunday",
-                         as.Date(date) %in% as.Date(c("2024-04-01", "2025-04-21")) ~ "easter_monday", # -------------------------------------------------------- pridat i ostatni roky ?
-                        TRUE ~ "reg")
-         ) %>%
-  group_by(date) %>% mutate(hour = seq_along(date)) %>% ungroup() %>% 
-  group_by(hour) %>% 
-  mutate(mwh_reg = case_when(hol != "reg" & weekday %in% c(6:7) ~ mwh,
-                             hol == "reg" ~ mwh, TRUE ~ NA),
-         mwh_pair = ifelse(hol == "reg", mwh, 
-                           zoo::na.locf(mwh_reg, na.rm = FALSE, fromLast = FALSE))) %>% # vyplní nejbližší dostupnou hodnotu v té samé hodině LAE ZATIM NE REG !!
-  ungroup() %>% 
-  select(hol, date, year, month, week, weekday, hour, mwh, mwh_reg, mwh_pair) %>% 
-  filter(hour == 12)
-  
- view(diagram)
-  
-  
-  # group_by(hour) %>% mutate(mwh_reg = case_when(hol != "reg" & weekday %in% c(6:7) ~ mwh,
-  #                            hol == "reg" ~ mwh, TRUE ~ NA),
-  #        mwh_pair = ifelse(hol == "reg", mwh, 
-  #                          zoo::na.locf(mwh_reg, na.rm = FALSE, fromLast = TRUE))) %>% # vyplní nejbližší dostupnou hodnotu z reg dne v té samé hodině
-  # ungroup() 
-  # # select(year, month, week, weekday, day, hour, hol, date, mwh, mwh_reg, mwh_pair) 
-  # # filter(hour == 12) # -------------------------------------------------------------------------------------------------- jen operativne pro prehled - pak smazat
-
-
-
-# check vvv
-
-# now <- diagram %>% filter(date == as.Date("2024-03-31")) # DST - 23h
-# fu <- future %>% filter(date == as.Date("2025-03-30")) # DST - 23h OK
-# 
-# now <- diagram %>% filter(date == as.Date("2024-10-27")) # DST - 25h
-# fu <- future %>% filter(date == as.Date("2025-10-26")) # DST - 25h OK
-
-# tr <- diagram %>% filter(date == as.Date("2024-03-29"))
-  
-```
-
-# SET TIME RANGE
-
-```{r}
-val_y1 <- unique(max(diagram$year))+1 # v pripade, ze nebude diagram za jeden kalendarni rok, ale treba prelom (proto max)
-val_y2 <- unique(max(diagram$year))+2
-val_y3 <- unique(max(diagram$year))+3
-```
-
-# CREATE FUTURE DIAGRAM
-
-```{r}
-
-future <- tibble(
-  timestamp = seq(
-    from = as.POSIXct(paste0(val_y1, "-01-01 00:00:00"), tz = "Europe/Prague"),
-    to   = as.POSIXct(paste0(val_y3, "-12-31 23:00:00"), tz = "Europe/Prague"),
-    by   = "hour")) %>% 
-  mutate(
-    date = as_date(timestamp),
-    weekday = wday(timestamp, week_start = 1),  # Monday = 1
-    year = lubridate::year(timestamp),
-    month = lubridate::month(timestamp),
-    week = lubridate::week(timestamp),
-    day = lubridate::day(timestamp),
-    md = paste0(month, "-", day),
-    hol = case_when(md %in% c("1-1", 
-                                   "5-1", "5-8", "7-5", "7-6", 
-                                   "9-8", "10-28", "11-17",
-                                   "12-24", "12-25", "12-26") ~ "ph", # public holiday
-                        date %in% c("2025-04-18", "2026-04-03", "2027-03-26") ~ "easter_friday",
-                        date %in% c("2025-04-19", "2026-04-04", "2027-03-27") ~ "easter_saturday",
-                        date %in% c("2025-04-20", "2026-04-05", "2027-03-28") ~ "easter_sunday",
-                        date %in% c("2025-04-21", "2026-04-06", "2027-03-29") ~ "easter_monday",
-                        TRUE ~ "reg")) %>% 
-  group_by(date) %>% mutate(hour = seq_along(date)) %>% 
-  ungroup() %>% 
-  select(year, month, week, weekday, hour, hol, date) 
-  # filter(hour == 12) # -------------------------------------------------------------------------------------------------- jen operativne pro prehled - pak smazat
-  
-view(future)
-
-```
-
-# JOIN
-
--- wip, funguje, jen treba vymyslet NA a posun tydnu do 2027 a if(2024 == ph, vem nejbližší reg...)
-
-  mwh = puvodni hodnoty z diagramu
-  mwh_wday = mwh prirazene na zaklade nejblizsiho dne v tydnu
-  mwh_hol = mwh prirazene na zaklade presneho datumu, protoze public holiday
-  mwh_futu = vysledek podminky: vyber prirazeni na zaklade promenne hol 
-  
-*!! nutne osetrit NA !!*
-
-```{r}
-
-join <- future %>% 
-  full_join(diagram %>% select(week, weekday, day, hour, mwh_pair), by = c("week", "weekday", "hour")) %>% 
-  rename("mwh" = mwh_pair) %>% filter(hour == 12)
-
-view(join)
-
-
-
-  mutate(day = lubridate::day(date)) %>% # potrebujeme zachovat datum z future a ne z diagram
-  full_join(diagram %>% select(month, day, hour, hol, mwh_pair), by = c("month", "day", "hour", "hol")) %>% 
-  mutate(mwh_hol = ifelse(hol == "ph", mwh, NA),
-         mwh_futu = ifelse(hol == "ph", mwh_hol, mwh_wday)) %>% 
-  select(hol, date, year, month, day, hour, week, weekday, mwh_futu) %>% 
-  filter(!is.na(date)) %>% filter(hour == 12)
-
-view(join)
-
-# exp, asi blbost 
-
-join_fl <- join %>% 
-  group_by(week, weekday, hour) %>%
-  ungroup() 
-  mutate(mwh = ifelse(is.na(mwh_futu), mwh_52, mwh_futu)) %>%
-  filter(hour == 12)
-
-join$mwh_futu <- ifelse(is.na(join$mwh_futu), mean(join$mwh_futu[join$weekday]))
-
-```
-
-# VELIKONOCE
-
-pro vsechny vyskyty jednotlivych velikonocnich dni prepise hodnoty z diagramu
-
-```{r}
-
-# levely, pro které chcete přepsat mwh
-to_replace <- c("easter_friday", "easter_saturday", "easter_sunday", "easter_monday")
-
-# funkce
-for (lev in to_replace) {
-  join$mwh[join$hol == lev] <- diagram$mwh_pair[diagram$hol == lev]
-}
-
-rm(lev)
-rm(to_replace)
-
-```
-
-# --------- experimental section below
-
-```{r}
 
 diagram <- load %>% 
   mutate(
@@ -237,32 +90,243 @@ diagram <- load %>%
                          as.Date(date) %in% as.Date(c("2024-03-29", "2025-04-18")) ~ "easter_friday",
                          as.Date(date) %in% as.Date(c("2024-03-30", "2025-04-19")) ~ "easter_saturday",
                          as.Date(date) %in% as.Date(c("2024-03-31", "2025-04-20")) ~ "easter_sunday",
-                         as.Date(date) %in% as.Date(c("2024-04-01", "2025-04-21")) ~ "easter_monday", # -------------------------------------------------------- pridat i ostatni roky ?
+                         as.Date(date) %in% as.Date(c("2024-04-01", "2025-04-21")) ~ "easter_monday", # pridat i ostatni roky ?
                         TRUE ~ "reg"),
-         mwh_pair = case_when(hol != "reg" & weekday %in% c(6:7) ~ mwh,
+         mwh_reg = case_when(hol != "reg" & weekday %in% c(6:7) ~ mwh,
                              hol == "reg" ~ mwh, TRUE ~ NA)
          ) %>%
   group_by(date) %>% mutate(hour = seq_along(date)) %>% ungroup() %>%
-  select(hol, date, year, month, week, weekday, hour, mwh, mwh_pair) %>% 
-  filter(hour == 12)
+  select(hol, date, year, month, week, weekday, hour, mwh, mwh_reg) 
+  # filter(hour == 12)
+
+
+fill_nearest_reg_by_hour <- function(df) {
   
-view(diagram)
-
-# nize funkcni chatGPT sekce, ktera vyplni nejblizsi reg hodnotu - overeno
-
-fill_nearest_reg <- function(df) {
-  reg_idx <- which(diagram$hol == "reg" & !is.na(diagram$mwh_pair))  # Get indices where hol == "reg" and mwh_pair is not NA
-    nearest_reg_value <- sapply(seq_len(nrow(diagram)), function(i) { # For each row, find nearest index among reg rows
-    if (!is.na(diagram$mwh_pair[i])) return(diagram$mwh_pair[i])
-    if (length(reg_idx) == 0) return(NA)
-    nearest <- reg_idx[which.min(abs(reg_idx - i))]   # find the index of reg row closest to i
-    return(diagram$mwh_pair[nearest])
-  })
-  diagram$mwh_pair_filled <- nearest_reg_value
-  diagram
+  df <- df %>% arrange(hour, date) # ensure day is Date
+  reg_days <- unique(df$date[df$hol == "reg"]) # get unique days and identify which are "reg"
+  df <- df %>%
+    group_by(hour) %>%
+    mutate(
+      mwh_pair = sapply(seq_along(date), function(i) {
+        if (!is.na(mwh_reg[i])) return(mwh_reg[i])  # if not missing, keep it
+        if (length(reg_days) == 0) return(NA)     
+        nearest_day <- reg_days[which.min(abs(as.numeric(date[i] - reg_days)))] # find nearest reg day
+        reg_val <- df$mwh_reg[df$date == nearest_day & df$hour == hour[i] & df$hol == "reg"]   # get value from that reg day & same hour
+        if (length(reg_val) == 0) return(NA)
+        return(reg_val)
+      })) %>%
+    ungroup()
+  df
 }
 
-df_filled <- fill_nearest_reg(diagram)
-df_filled
+diagram_upd <- fill_nearest_reg_by_hour(diagram) %>% 
+  arrange(year, date, hour)
+
+diagram_core <- diagram # puvodni diagram (zaloha)
+diagram <- diagram_upd # upraveny diagram (pro praci)
+
+view(diagram)
+rm(diagram_upd)
+  
+```
+
+## SET TIME RANGE -- done
+
+```{r}
+val_y1 <- unique(max(diagram$year))+1 # v pripade, ze nebude diagram za jeden kalendarni rok, ale treba prelom (proto max)
+val_y2 <- unique(max(diagram$year))+2
+val_y3 <- unique(max(diagram$year))+3
+```
+
+## CREATE FUTURE -- done
+
+-- zatim pro roky 2026, 2027, 2028
+
+```{r}
+
+future <- tibble(
+  timestamp = seq(
+    from = as.POSIXct(paste0(val_y1, "-01-01 00:00:00"), tz = "Europe/Prague"),
+    to   = as.POSIXct(paste0(val_y3, "-12-31 23:00:00"), tz = "Europe/Prague"),
+    by   = "hour")) %>% 
+  mutate(
+    date = as_date(timestamp),
+    year = lubridate::year(date),
+    month = lubridate::month(date),
+    week = lubridate::week(date),
+    day = lubridate::day(date),
+    weekday = lubridate::wday(date, week_start = 1),
+    md = paste0(month, "-", day),
+    hol = case_when(
+      md == ("1-1") ~ "novy_rok",
+      md == ("5-1") ~ "svatek_prace",
+      md == ("5-8") ~ "konec_valky",
+      md == ("7-5") ~ "cyril_metod",
+      md == ("7-6") ~ "jan_hus",
+      md == ("9-28") ~ "sv_vaclav",
+      md == ("10-28") ~ "vznik_statu",
+      md == ("11-17") ~ "den_student",
+      md == ("12-24") ~ "stedry_den",
+      md == ("12-25") ~ "bozi_hod",
+      md == ("12-26") ~ "sv_stepan",
+      as.Date(date) %in% as.Date(c("2024-03-29", "2025-04-18", "2026-04-03", "2028-03-26")) ~ "easter_friday",
+      as.Date(date) %in% as.Date(c("2024-03-30", "2025-04-19", "2026-04-04", "2028-03-27")) ~ "easter_saturday",
+      as.Date(date) %in% as.Date(c("2024-03-31", "2025-04-20", "2026-04-05", "2028-03-28")) ~ "easter_sunday",
+      as.Date(date) %in% as.Date(c("2024-04-01", "2025-04-21", "2026-04-06", "2028-03-29")) ~ "easter_monday", # pridat i ostatni roky ?
+      TRUE ~ "reg")) %>% 
+  group_by(date) %>% mutate(hour = seq_along(date)) %>% 
+  ungroup() %>% 
+  select(hol, date, year, month, week, weekday, hour) 
+  # filter(hour == 12) # -------- jen operativne pro prehled - pak smazat
+  
+view(future)
 
 ```
+
+## JOIN -- done
+
+
+```{r}
+
+join <- future %>% 
+  left_join(diagram %>% select(week, weekday, hour, mwh_pair), by = c("week", "weekday", "hour")) %>% 
+  rename("mwh" = mwh_pair) 
+
+nrow(future) < nrow(join)
+
+view(join)
+
+```
+
+## KONEC ROKU -- check
+
+-- fill missing values
+
+```{r}
+
+fill <- join %>% 
+  group_by(hour) %>% 
+  mutate(mwh_fill = mwh) %>% 
+  fill(mwh_fill, .direction = "down") %>% 
+  select(hol, date, year, month, week, weekday, hour, "mwh" = mwh_fill)
+
+```
+
+
+## PREPIS SVATKU -- done
+
+pro vsechny vyskyty jednotlivych velikonocnich dni prepise hodnoty z diagramu
+
+```{r}
+
+# levely, pro které chcete přepsat mwh
+to_replace <- c( "novy_rok", 
+                 "easter_friday", "easter_saturday", "easter_sunday", "easter_monday",
+                 "svatek_prace", "konec_valky",
+                 "cyril_metod", "jan_hus",
+                 "sv_vaclav", "vznik_statu", "den_student",
+                 "stedry_den", "bozi_hod", "sv_stepan")
+
+# funkce
+for (lev in to_replace) {
+  fill$mwh[fill$hol == lev] <- diagram$mwh[diagram$hol == lev]
+}
+
+rm(lev)
+rm(to_replace)
+
+```
+
+
+## check excel
+
+```{r}
+write_xlsx(fill, paste0(path, "_Rpresvatkovany_bohemiasekt_2025-2027.xlsx"))
+```
+
+
+## FILTER TIME RANGE -- to do
+
+-- na jake obdobi chceme future?
+
+
+# VYPOCET CENY ZP
+
+FWD krivka:
+  NCG = cena plynu
+  FX rate = fwd kurz eura
+
+```{r}
+
+
+```
+
+
+# ----> APPLICATION
+
+```{r}
+
+ui <- fluidPage(
+  titlePanel("Nahraj Ekcel"),
+  sidebarLayout(
+    sidebarPanel(
+      fileInput("file", "Nahraj ekcel",
+                accept = c(".xls", ".xlsx")),
+      uiOutput("col_selector")  # Dropdown for choosing a column
+    ),
+    mainPanel(
+      h3("Calculation Result"),
+      textOutput("result")
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  
+  # Reactive expression to read the uploaded Excel file
+  data <- reactive({
+    req(input$file)  # make sure a file is uploaded
+    read_excel(input$file$datapath)
+  })
+  # Dynamically create column selector after file is uploaded
+  output$col_selector <- renderUI({
+    req(data())
+    selectInput("col", "Choose a numeric column:",
+                choices = names(data()))
+  })
+  
+  # Perform calculation (example: sum of selected column)
+  result_calc <- reactive({
+    req(input$col)
+    col_data <- data()[[input$col]]
+    if (is.numeric(col_data)) {
+      sum(col_data, na.rm = TRUE)
+    } else {
+      NA
+    }
+  })
+  
+  # Display result
+  output$result <- renderText({
+    req(result_calc())
+    paste("Sum of column", input$col, "is:", result_calc())
+  })
+}
+
+# Run the app
+shinyApp(ui = ui, server = server)
+
+```
+
+
+# --------- experimental section below
+
+```{r}
+spust_skript <- function(cesta) {
+  source(cesta)
+}
+
+spust_skript("C:/Users/krizova/Documents/R/_spp_Rscripts/presvatkovani.R")
+
+```
+

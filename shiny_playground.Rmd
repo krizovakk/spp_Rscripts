@@ -167,4 +167,68 @@ ui <- fluidPage(
 server <- function(input, output) {}
 shinyApp(ui = ui, server = server)
 ```
+```{r}
+# app.R
+library(shiny)
+
+ui <- fluidPage(
+  
+  # App title
+  titlePanel("Two-Button Shiny App"),
+  
+  # Sidebar with two buttons
+  sidebarLayout(
+    sidebarPanel(
+      actionButton("ee_btn", "EE"),
+      actionButton("zp_btn", "ZP")
+    ),
+    
+    # Main panel to display content
+    mainPanel(
+      uiOutput("main_content")
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  
+  # Reactive value to store which button was last pressed
+  current_page <- reactiveVal("none")
+  
+  observeEvent(input$ee_btn, {
+    current_page("EE")
+  })
+  
+  observeEvent(input$zp_btn, {
+    current_page("ZP")
+  })
+  
+  # Render different content based on which button was clicked
+  output$main_content <- renderUI({
+    if (current_page() == "EE") {
+      tagList(
+        h3("EE Content"),
+        p("This is the main content for the EE section.")
+      )
+    } else if (current_page() == "ZP") {
+      tagList(
+        h3("ZP Content"),
+        p("This is the main content for the ZP section.")
+      )
+    } else {
+      h4("Please select a button from the sidebar.")
+    }
+  })
+}
+
+shinyApp(ui, server)
+
+```
+# TUTORIAL
+
+https://www.youtube.com/watch?v=jxsKUxkiaLI
+
+```{r}
+
+```
 
