@@ -197,152 +197,7 @@ icis <- cons %>%
 append_to_excel(icis, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "ICIS komplet")
 ```
 
-# EEX
-
-```{r}
-
-# PO
-pub_d <- as.Date("17.10.2025", format = "%d.%m.%Y") # zadej patek nebo jiny den zpetne
-del_d <- as.Date(pub_d+1)
-
-# UT-PA
-# del_d <- as.Date(Sys.Date(), format = "%d.%m.%Y")
-# pub_d <- as.Date(Sys.Date()-1, format = "%d.%m.%Y")
-
-weekday = weekdays(pub_d)
-```
-
-## eod
-
-```{r}
-# read from clipboard
-text <- paste(readClipboard(), collapse = "\n")
-# print(text)
-
-# match indices and prices
-
-pattern <- '<tr class="mv-quote-row".*?><td style="text-align: left;">(.*?)</td><td style="text-align: right;">(.*?)</td><td style="text-align: right;">(.*?)</td><td style="text-align: right;">(.*?)</td>'
-
-matches <- str_match_all(text, pattern)[[1]]
-
-# Create data frame with raw string values preserved
-odf <- data.frame(
-  index = matches[, 2],
-  lastPrice = str_trim(matches[, 3]),
-  lastVolume = str_trim(matches[, 4]),
-  EOD = str_trim(matches[, 5]),
-  stringsAsFactors = FALSE
-) %>% 
-  mutate(lastPrice = str_remove(lastPrice, "-"), 
-         lastVolume = str_remove(lastVolume, "&nbsp;"),
-         EOD = as.numeric(str_replace(EOD, ",", "\\."))) %>% 
-  select(index, EOD)
-
-if (weekday == "Friday"){
-  we <- odf %>% filter(index %in% c("CZ VTP Weekend", "THE Weekend", "TTF Weekend"))  %>% 
-    mutate(market = paste("EOD:", str_extract(index, "CZ VTP|THE|TTF")),
-           'Delivery date' = del_d,
-           Index = paste0("EEX Spot EOD")) %>%
-    select(-index, -Index) %>%
-    pivot_wider(names_from = market, values_from = EOD)
-  da <- odf %>% filter(index %in% c("CZ VTP Day Ahead", "THE Day Ahead", "TTF Day Ahead")) %>% 
-    mutate(market = paste("EOD:", str_extract(index, "CZ VTP|THE|TTF")),
-           'Delivery date' = pub_d+3,
-           Index = paste0("EEX Spot EOD")) %>%
-    select(-index, -Index) %>%
-    pivot_wider(names_from = market, values_from = EOD)
-  eod <- rbind(we, we[rep(1:nrow(we), 1), ], da)
-  eod[2, 'Delivery date'] <- del_d+1
-} else {
-  eod <- odf %>% filter(index %in% c("CZ VTP Day Ahead", "THE Day Ahead", "TTF Day Ahead")) %>% 
-    mutate(market =  paste("EOD:", str_extract(index, "CZ VTP|THE|TTF")),
-           'Delivery date' = del_d,
-           Index = paste0("EEX Spot EOD")) %>%
-    select(-index, -Index) %>%
-    pivot_wider(names_from = market, values_from = EOD)
-}
-```
-
-## egsi
-
-```{r}
-# read from clipboard
-text <- readClipboard()
-# print(text)
-
-# match indices and prices
-matches <- str_match_all(
-  text,
-  '<td style="text-align: left;">(.*?)</td><td style="text-align: left;">(\\d{1,3}(?:,\\d{3})*)</td>'
-)[[1]]
-
-# create table
-gdf <- data.frame(
-  market = matches[, 2],
-  value = matches[, 3],
-  stringsAsFactors = FALSE
-) %>%
-  mutate(value = round(as.numeric(str_replace_all(value, ",", "")), 3))  # remove commas
-
-gdf <- data.frame(
-  market = matches[, 2],
-  value = matches[, 3],
-  stringsAsFactors = FALSE
-) %>% 
-  mutate(value = round(as.numeric(str_replace(value, ",", ".")), 3))
-
-egsi <- gdf %>% 
-  filter(market %in% c("CZ VTP", "THE", "TTF")) %>% 
-  mutate(market = paste("EGSI:", market)) %>% 
-  pivot_wider(names_from = market, values_from = value) 
-```
-
-# futures
-
-```{r}
-emp <- data.frame(
-  date = character(),
-  value1 = numeric(),
-  value2 = numeric(),
-  value3 = numeric(),
-  value4 = numeric(),
-  value5 = numeric(),
-  value6 = numeric(),
-  value7 = numeric(),
-  value8 = numeric(),
-  value9 = numeric(),
-  stringsAsFactors = FALSE
-)
-
-df <- data.frame(
-  `Publication date` = pub_d,
-  value1 = 33.220	, # VTP Cal+1
-  value2 = 33.783	, # VTP Q+1
-  value3 = 33.492	, # VTP M+1
-  value4 = 32.203	, # THE Cal+1
-  value5 = 33.182	, # THE Q+1
-  value6 = 32.851	, # THE M+1
-  value7 = 30.811	, # TTF Cal+1
-  value8 = 31.958	, # TTF Q+1
-  value9 = 31.837			 # TTF M+1
-)
-
-futu <- rbind(emp, df)
-names(futu) <- c("Publication date", "CZ VTP Cal+1", "CZ VTP Q+1", "CZ VTP M+1",
-                    "THE Cal+1", "THE Q+1", "THE M+1",
-                    "TTF Cal+1", "TTF Q+1", "TTF M+1")
-
-# ------------------------------------- cbind and append
-
-eex <- cbind(eod, egsi, futu)
-append_to_excel(eex, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "EEX")
-```
-
 # F I N A L  SAVE AND BACKUP
-
-PO:
-  pro EGSI doplint rucne hodnoty za nedeli
-  vymazat duplicitni radky z Futures
 
 
 ```{r}
@@ -367,9 +222,14 @@ rm(list=ls())
 
 # PLOTS
 
+## ICIS - Mid
+
+- done
+
 ```{r}
 
 # packages
+
 require(tidyverse)
 require(openxlsx)
 require(stringr)
@@ -385,14 +245,6 @@ path_bu <- "C:/Users/krizova/Documents/R/indexyPlyn/d-1_backup/"
 path_out <- "C:/Users/krizova/Documents/R/indexyPlyn/"
 
 Sys.setlocale("LC_TIME", "C")  # or "en_US.UTF-8" on some systems
-
-```
-
-## ICIS - Mid
-
-- done
-
-```{r}
 
 # data
 
@@ -474,149 +326,154 @@ saveWidget(a, file = "X:/Nakup _ NEW/Indexy_Plyn/grafy_vyvojCen_locationSpready/
 
 ```
 
-## ICIS - Spread
+# ----------------- monday bussines
 
-- adjust x axis for weekdays only
+# EEX 
 
-```{r}
+## source indexu
 
-df <- read_excel(paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "ICIS komplet") %>%
-  mutate(Date = case_when(
-      grepl("^[0-9]+$", `Delivery date`) ~ as.Date(as.numeric(`Delivery date`), origin = "1899-12-30"),
-      TRUE ~ as.Date(`Delivery date`, format = "%d.%m.%Y")
-  )) %>% filter(!is.na(Date))
+https://www.eex.com/en/market-data/market-data-hub
 
-# mid values in long format
+### eod @ LOOP
 
-spr <- df %>% 
-  select(Date, `THE/TTF`, `CZ-VTP/TTF`, `CZ-VTP/THE`) %>% 
-  pivot_longer(cols = -Date, names_to = "series", values_to = "value") %>% 
-  na.omit() %>% 
-  filter(Date >= (Sys.Date() %m-% months(2))) # -------------------------------- set the time range here
-
-# min and max for each of the markets 
-
-extrema <- spr %>%
-  group_by(series) %>%
-  filter(value == min(value) | value == max(value))
-
-# min and max for the whole dataset to set y scale
-
-y_limits <- spr %>%
-  summarise(min_val = min(value, na.rm = TRUE),
-            max_val = max(value, na.rm = TRUE)) %>%
-  mutate(min_limit = min_val - 1, max_limit = max_val + 1)
-
-# plot
-
-g_spr <- ggplot(spr, aes(x = Date, y = value, color = series)) + 
-  geom_line(linewidth = 1)+
-  geom_point(data = extrema, aes(fill = series), shape = 21, size = 3) +
-  geom_text(
-    data = extrema,
-    aes(label = round(value, 1)), 
-    nudge_y = 0.15, size = 5,
-    show.legend = FALSE) +
-  scale_color_manual(values = c(
-      "THE/TTF" = "aquamarine",
-      "CZ-VTP/TTF" = "aquamarine3",
-      "CZ-VTP/THE" = "aquamarine4"))+
-  scale_fill_manual(values = c(
-      "THE/TTF" = "aquamarine",
-      "CZ-VTP/TTF" = "aquamarine3",
-      "CZ-VTP/THE" = "aquamarine4"))+
-  labs(x = "", y = "€ / MWh", title = "Location Spreads", colour = "", fill = "") +
-  scale_x_date(
-    breaks = "1 day", # ------------------------------------------------------- muzes upravit
-    date_labels = "%d-%b-%y",
-    minor_breaks = NULL, 
-    expand = c(0.05, 0.05))+
-  scale_y_continuous(
-    limits = c(y_limits$min_limit, y_limits$max_limit),
-    breaks = seq(floor(y_limits$min_limit), ceiling(y_limits$max_limit), by = 0.5))+
-  theme_bw()+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "top")
-
-require(plotly)
-library(htmlwidgets)
-
-a <- ggplotly(g_spr)
-saveWidget(a, file = "X:/Nakup _ NEW/Indexy_Plyn/grafy_vyvojCen_locationSpready/LocationSpreads_last2months.html")
-
-# CLEAR ENVIRONMENT
-
-rm(list=ls())
-
-```
-
-## EEX 
-
-- to do
+-- idea:
+  prekliknout "market" a projet trikrat s ruznou verzi clipboardu
 
 ```{r}
 
-df <- read_excel(paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "EEX") 
+# market <- "eod_vtp"
+# market <- "eod_the"
+market <- "eod_ttf"
 
-  mutate(Date = case_when(
-      grepl("^[0-9]+$", `Delivery date`) ~ as.Date(as.numeric(`Delivery date`), origin = "1899-12-30"),
-      TRUE ~ as.Date(`Delivery date`, format = "%d.%m.%Y")
-  )) %>% filter(!is.na(Date))
+# read from clipboard
+text <- paste(readClipboard(), collapse = "\n")
+# print(text)
 
-# mid values in long format
+# Extract all <td> values
+values <- str_match_all(text, "<td>(.*?)</td>")[[1]][,2]
 
-spr <- df %>% 
-  select(Date, `THE/TTF`, `CZ-VTP/TTF`, `CZ-VTP/THE`) %>% 
-  pivot_longer(cols = -Date, names_to = "series", values_to = "value") %>% 
+# Reshape into 4-column table
+df <- data.frame(matrix(values, ncol = 4, byrow = TRUE))
+names(df) <- c("pub_date", "del_date", "volume", "price")
+
+# Clean numbers
+df <- df %>%
+  mutate(
+    pub_date = as.Date(pub_date),
+    del_date = as.Date(del_date),
+    volume   = as.numeric(gsub(",", "", volume)),
+    price    = as.numeric(price)
+  ) %>% 
+  select(del_date, price) %>% 
+  rename(!!market := price) %>% 
   na.omit() %>% 
-  filter(Date >= (Sys.Date() %m-% months(2))) # -------------------------------- set the time range here
+  arrange(del_date)
 
-# min and max for each of the markets 
+assign(market, df)
 
-extrema <- spr %>%
-  group_by(series) %>%
-  filter(value == min(value) | value == max(value))
-
-# min and max for the whole dataset to set y scale
-
-y_limits <- spr %>%
-  summarise(min_val = min(value, na.rm = TRUE),
-            max_val = max(value, na.rm = TRUE)) %>%
-  mutate(min_limit = min_val - 1, max_limit = max_val + 1)
-
-# plot
-
-g_spr <- ggplot(spr, aes(x = Date, y = value, color = series)) + 
-  geom_line(linewidth = 1)+
-  geom_point(data = extrema, aes(fill = series), shape = 21, size = 3) +
-  geom_text(
-    data = extrema,
-    aes(label = round(value, 1)), 
-    nudge_y = 0.15, size = 5,
-    show.legend = FALSE) +
-  scale_color_manual(values = c(
-      "THE/TTF" = "aquamarine",
-      "CZ-VTP/TTF" = "aquamarine3",
-      "CZ-VTP/THE" = "aquamarine4"))+
-  scale_fill_manual(values = c(
-      "THE/TTF" = "aquamarine",
-      "CZ-VTP/TTF" = "aquamarine3",
-      "CZ-VTP/THE" = "aquamarine4"))+
-  labs(x = "", y = "€ / MWh", title = "Location Spreads", colour = "", fill = "") +
-  scale_x_date(
-    breaks = "1 day", # ------------------------------------------------------- muzes upravit
-    date_labels = "%d-%b-%y",
-    minor_breaks = NULL, 
-    expand = c(0, 1))+
-  scale_y_continuous(
-    limits = c(y_limits$min_limit, y_limits$max_limit),
-    breaks = seq(floor(y_limits$min_limit), ceiling(y_limits$max_limit), by = 0.5))+
-  theme_bw()+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "top")
-
-require(plotly)
-library(htmlwidgets)
-
-a <- ggplotly(g_spr)
-saveWidget(a, file = "X:/Nakup _ NEW/Indexy_Plyn/grafy_vyvojCen_locationSpready/LocationSpreads_last2months.html")
 
 ```
+
+```{r}
+date_min <- min(df$del_date)
+date_max <- max(df$del_date)
+```
+
+### egsi @ LOOP
+
+-- idea:
+  prekliknout "market" a projet trikrat s ruznou verzi clipboardu
+
+```{r}
+
+# market <- "egsi_vtp"
+# market <- "egsi_the"
+market <- "egsi_ttf"
+
+# read from clipboard
+text <- paste(readClipboard(), collapse = "\n")
+# print(text)
+
+# Extract all <td> values
+values <- str_match_all(text, "<td>(.*?)</td>")[[1]][,2]
+
+# Reshape into 4-column table
+df <- data.frame(matrix(values, ncol = 3, byrow = TRUE))
+names(df) <- c("trad_date", "del_date", "price")
+
+# Clean numbers
+df <- df %>%
+  mutate(
+    trad_date = as.Date(trad_date),
+    del_date = as.Date(del_date),
+    price    = as.numeric(price)
+  ) %>% 
+  select(del_date, price) %>% 
+  rename(!!market := price) %>% 
+  arrange(del_date) %>% 
+  filter(del_date>=date_min & del_date<=date_max) # filtr tydne
+
+assign(market, df)
+
+```
+
+### futures
+
+-- idea:
+  source kody nakopirovat do textaku a pak teprve nacist 
+  idealne za cely tyden
+
+-- zadavat Trading day == minule pondeli
+
+-- poradi:
+
+VTP Cal+1 -> VTP Q+1 -> VTP M+1 -> 
+THE Cal+1 -> THE Q+1 -> THE M+1 -> 
+TTF Cal+1 -> TTF Q+1 -> TTF M+1
+  
+```{r}
+
+text <- readLines(paste0(path_out, "oper_EEXfutures.txt")) # warning is fine, warn = FALSE
+
+values <- str_match_all(text, "<td>(.*?)</td>")[[1]][,2]
+
+df <- data.frame(matrix(values, ncol = 4, byrow = TRUE)) # reshape into 4-column table
+
+days <- 5 # enter for how many days you do the processing
+
+df$market <- rep(c("VTP", "THE", "TTF"), each = 3 * days) # days * futures (3 = cal, quater, month) 
+df$maturity <- rep(c("Cal+1", "Q+1", "M+1"), each = days, times = 3)
+df$product <- paste(df$market, df$maturity)
+df$price <- as.numeric(df$X4)
+
+futu <- df %>% 
+  mutate(trad_date = as.Date(X1)) %>% 
+  select(trad_date, price, product) %>% 
+  pivot_wider(names_from = product, values_from = price) %>% 
+  arrange(trad_date) %>% 
+  add_row(trad_date = max(.$trad_date) + 1) %>% # sobota NA
+  add_row(trad_date = max(.$trad_date) + 1)     # nedele NA
+
+```
+
+## cbind a save do excelu
+
+```{r}
+
+eex <- egsi_ttf %>% 
+  left_join(egsi_the, by = "del_date") %>% 
+  left_join(egsi_vtp, by = "del_date") %>% 
+  left_join(eod_ttf, by = "del_date") %>% 
+  left_join(eod_the, by = "del_date") %>% 
+  left_join(eod_vtp, by = "del_date")
+
+# EOD a EGSI
+append_to_excel(eex, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "EEX")
+
+# FUTURES
+append_to_excel(futu, paste0(path_out, "indexyPlyn_AKTUALNI.xlsx"), sheet = "EEX futures")
+
+```
+
+
+

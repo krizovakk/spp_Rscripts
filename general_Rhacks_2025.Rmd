@@ -860,6 +860,23 @@ colnames(kmen) <- paste0("kmen_", colnames(kmen))
 names(df) <- ifelse(grepl("pat1|pat2|pat3", names(df)), paste0("NEW NAME ", names(df)), names(df))
 ```
 
+### rename column usinf abother variable
+
+```{r}
+market <- "eod vtp"
+
+df <- df %>%
+  mutate(
+    pub_date = as.Date(pub_date),
+    del_date = as.Date(del_date),
+    volume   = as.numeric(gsub(",", "", volume)),
+    price    = as.numeric(price)
+  ) %>% 
+  select(del_date, price) %>% 
+  rename(!!market := price)
+```
+
+
 ### merge two columns with not complete information
 
 column 1 has some NAs  
@@ -969,6 +986,15 @@ distinct(sp_cislo, sp_id, .keep_all = TRUE) # vybrane sloupce, ponecha vse
 ```{r}
 fill(Mrok, .direction = "down")
 ```
+
+### add row
+
+```{r}
+futu <- df %>% 
+  mutate(trad_date = as.Date(datum)) %>% 
+  add_row(trad_date = max(.$trad_date) + 1) 
+```
+
 
 ### drop row 
 
